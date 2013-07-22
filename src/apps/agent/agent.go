@@ -24,6 +24,7 @@ func main() {
 	ch := make(chan error)
 	go memStats(ep, ch)
 	go cpuStats(ep, ch)
+	go diskSpaceStats(ep, ch)
 	fmt.Printf("Agent started successfully\n")
 	err := <-ch
 	fmt.Printf("Data collection stopped unexpectedly. Error: %s\n", err)
@@ -63,6 +64,33 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 			return
 		}
 
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func diskSpaceStats(ep *errplane.Errplane, ch chan error) {
+	fslist := sigar.FileSystemList{}
+
+	for {
+		fslist.Get()
+
+		timestamp := time.Now()
+
+		for _, fs := range fslist.List {
+			dir_name := fs.DirName
+			usage := sigar.FileSystemUsage{}
+			usage.Get(dir_name)
+
+			dimensions := errplane.Dimensions{"host": hostname, "partition": fs.DevName}
+
+			used := float64(usage.Total)
+			usedPercentage := usage.UsePercent()
+
+			if report(ep, "server.stats.disk.used", used, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.disk.used_percentage", usedPercentage, timestamp, dimensions, ch) {
+				return
+			}
+		}
 		time.Sleep(10 * time.Second)
 	}
 }
