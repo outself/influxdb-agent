@@ -138,7 +138,7 @@ func diskSpaceStats(ep *errplane.Errplane, ch chan error) {
 			usage := sigar.FileSystemUsage{}
 			usage.Get(dir_name)
 
-			dimensions := errplane.Dimensions{"host": hostname, "partition": fs.DevName}
+			dimensions := errplane.Dimensions{"host": hostname, "device": fs.DevName}
 
 			used := float64(usage.Total)
 			usedPercentage := usage.UsePercent()
