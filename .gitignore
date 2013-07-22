@@ -1,3 +1,6 @@
 pkg/
 *~
 src/github.com/errplane/errplane-go/
+src/github.com/cloudfoundry/gosigar/
+/agent
+TAGS

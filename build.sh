@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 
-cd `dirname $0`
+. exports.sh
 
-export GOPATH=`pwd`
+build_args=""
+if [ "$UPDATE" = "on" ]; then
+    build_args="-u"
+fi
 
-go get github.com/errplane/errplane-go
+go get $build_args github.com/errplane/errplane-go \
+    	github.com/cloudfoundry/gosigar
 
+go build apps/agent
