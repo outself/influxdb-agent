@@ -4,3 +4,6 @@ src/github.com/errplane/errplane-go/
 src/github.com/cloudfoundry/gosigar/
 /agent
 TAGS
+*.sh
+!build.sh
+!exports.sh
