@@ -64,7 +64,7 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 		usedPercentage := actualUsed / float64(mem.Total) * 100
 
 		swapUsed := float64(swap.Used)
-		swapUsedPercentage := used / float64(swap.Total) * 100
+		swapUsedPercentage := swapUsed / float64(swap.Total) * 100
 
 		if report(ep, "server.stats.memory.free", float64(mem.Free), timestamp, dimensions, ch) ||
 			report(ep, "server.stats.memory.used", used, timestamp, dimensions, ch) ||
