@@ -6,6 +6,7 @@ import (
 	"github.com/errplane/errplane-go"
 	"os"
 	"time"
+	"utils"
 )
 
 var hostname string
@@ -25,6 +26,7 @@ func main() {
 	go memStats(ep, ch)
 	go cpuStats(ep, ch)
 	go diskSpaceStats(ep, ch)
+	go ioStats(ep, ch)
 	fmt.Printf("Agent started successfully\n")
 	err := <-ch
 	fmt.Printf("Data collection stopped unexpectedly. Error: %s\n", err)
@@ -38,6 +40,48 @@ func report(ep *errplane.Errplane, metric string, value float64, timestamp time.
 		return true
 	}
 	return false
+}
+
+func ioStats(ep *errplane.Errplane, ch chan error) {
+	prevTimeStamp := time.Now()
+	var prevDiskUsages []utils.DiskUsage
+
+	for {
+		timestamp := time.Now()
+		diskUsages, err := utils.GetDiskUsages()
+		if err != nil {
+			ch <- err
+			return
+		}
+
+		if prevDiskUsages != nil {
+			devNameToDiskUsage := make(map[string]*utils.DiskUsage)
+			for idx, prevDiskUsage := range prevDiskUsages {
+				devNameToDiskUsage[prevDiskUsage.Name] = &prevDiskUsages[idx]
+			}
+
+			for _, diskUsage := range diskUsages {
+				prevDiskUsage := devNameToDiskUsage[diskUsage.Name]
+				if prevDiskUsage == nil {
+					fmt.Printf("Cannot find %s in previous disk usage\n", diskUsage.Name)
+					continue
+				}
+
+				millisecondsElapsed := timestamp.Sub(prevTimeStamp).Nanoseconds() / int64(time.Millisecond)
+				utilization := float64(diskUsage.TotalIOTime-prevDiskUsage.TotalIOTime) / float64(millisecondsElapsed) * 100
+
+				dimensions := errplane.Dimensions{"host": hostname, "device": diskUsage.Name}
+
+				if report(ep, "server.stats.io.utilization", float64(utilization), timestamp, dimensions, ch) {
+					return
+				}
+			}
+		}
+
+		prevDiskUsages = diskUsages
+		prevTimeStamp = timestamp
+		time.Sleep(10 * time.Second)
+	}
 }
 
 func memStats(ep *errplane.Errplane, ch chan error) {
@@ -90,6 +134,7 @@ func diskSpaceStats(ep *errplane.Errplane, ch chan error) {
 
 		for _, fs := range fslist.List {
 			dir_name := fs.DirName
+
 			usage := sigar.FileSystemUsage{}
 			usage.Get(dir_name)
 
