@@ -59,8 +59,20 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 		dimensions := errplane.Dimensions{"host": hostname}
 		timestamp := time.Now()
 
+		used := float64(mem.Used)
+		actualUsed := float64(mem.ActualUsed)
+		usedPercentage := actualUsed / float64(mem.Total)
+
+		swapUsed := float64(swap.Used)
+		swapUsedPercentage := used / float64(swap.Total)
+
 		if report(ep, "server.stats.memory.free", float64(mem.Free), timestamp, dimensions, ch) ||
-			report(ep, "server.stats.memory.used", float64(mem.Used), timestamp, dimensions, ch) {
+			report(ep, "server.stats.memory.used", used, timestamp, dimensions, ch) ||
+			report(ep, "server.stats.memory.actual_used", actualUsed, timestamp, dimensions, ch) ||
+			report(ep, "server.stats.memory.used_percentage", usedPercentage, timestamp, dimensions, ch) ||
+			report(ep, "server.stats.swap.free", float64(swap.Free), timestamp, dimensions, ch) ||
+			report(ep, "server.stats.swap.used", swapUsed, timestamp, dimensions, ch) ||
+			report(ep, "server.stats.swap.used_percentage", swapUsedPercentage, timestamp, dimensions, ch) {
 			return
 		}
 
