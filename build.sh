@@ -8,6 +8,7 @@ if [ "$UPDATE" = "on" ]; then
 fi
 
 go get $build_args github.com/errplane/errplane-go \
-    	github.com/cloudfoundry/gosigar
+    github.com/cloudfoundry/gosigar \
+    launchpad.net/goyaml
 
 go build apps/agent

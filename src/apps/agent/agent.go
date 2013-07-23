@@ -1,15 +1,25 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/cloudfoundry/gosigar"
 	"github.com/errplane/errplane-go"
+	"io/ioutil"
+	"launchpad.net/goyaml"
 	"os"
 	"time"
 	"utils"
 )
 
-var hostname string
+var (
+	hostname    string
+	udpHost     string
+	httpHost    string
+	appKey      string
+	environment string
+	apiKey      string
+)
 
 func init() {
 	var err error
@@ -21,16 +31,44 @@ func init() {
 }
 
 func main() {
-	ep := errplane.New("w.apiv3.errplane.com", "udp.apiv3.errplane.com", "app4you2love", "staging", "962cdc9b-15e7-4b25-9a0d-24a45cfc6bc1")
+	config := flag.String("config", "/etc/errplane-agent/config.yml", "The agent config file")
+	flag.Parse()
+
+	err := initConfig(*config)
+	if err != nil {
+		fmt.Printf("Error while reading configuration. Error: %s", err)
+		os.Exit(1)
+	}
+
+	ep := errplane.New(httpHost, udpHost, appKey, environment, apiKey)
 	ch := make(chan error)
 	go memStats(ep, ch)
 	go cpuStats(ep, ch)
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
 	fmt.Printf("Agent started successfully\n")
-	err := <-ch
+	err = <-ch
 	fmt.Printf("Data collection stopped unexpectedly. Error: %s\n", err)
 	return
+}
+
+func initConfig(path string) error {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	m := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(content, &m)
+	if err != nil {
+		return err
+	}
+	general := m["general"].(map[interface{}]interface{})
+	udpHost = general["udp-host"].(string)
+	httpHost = general["http-host"].(string)
+	environment = general["environment"].(string)
+	appKey = general["app-key"].(string)
+	apiKey = general["api-key"].(string)
+	return nil
 }
 
 func report(ep *errplane.Errplane, metric string, value float64, timestamp time.Time, dimensions errplane.Dimensions, ch chan error) bool {
