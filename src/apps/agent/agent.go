@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
+	"strconv"
 	"time"
 	"utils"
 )
@@ -51,6 +52,7 @@ func main() {
 	go cpuStats(ep, ch)
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
+	go procStats(ep, ch)
 	log.Info("Agent started successfully")
 	err = <-ch
 	log.Error("Data collection stopped unexpectedly. Error: %s", err)
@@ -118,6 +120,62 @@ func report(ep *errplane.Errplane, metric string, value float64, timestamp time.
 		return true
 	}
 	return false
+}
+
+type ProcStat struct {
+	cpu    sigar.ProcTime
+	memory sigar.ProcMem
+	state  sigar.ProcState
+}
+
+func procStats(ep *errplane.Errplane, ch chan error) {
+	pids := sigar.ProcList{}
+	pids.Get()
+
+	previousStats := make(map[string]interface{})
+
+	for {
+		for _, pid := range pids.List {
+			timestamp := time.Now()
+
+			state := sigar.ProcState{}
+			mem := sigar.ProcMem{}
+			procTime := sigar.ProcTime{}
+
+			if err := state.Get(pid); err != nil {
+				continue
+			}
+			if err := mem.Get(pid); err != nil {
+				continue
+			}
+			if err := procTime.Get(pid); err != nil {
+				continue
+			}
+
+			pidStr := strconv.Itoa(pid)
+			pidPreviousStats := previousStats[pidStr]
+
+			name := state.Name
+			// dimensions := errplane.Dimensions{
+			// 	"name": name,
+			// 	"pid":  pidStr,
+			// }
+
+			if pidPreviousStats != nil {
+				prevTime := pidPreviousStats.(sigar.ProcTime)
+
+				uptime := uint64(timestamp.Nanosecond()/int(time.Millisecond)) - prevTime.StartTime
+				cpuPercentage := float64(procTime.Total-prevTime.Total) / float64(uptime)
+				// if report(ep, "server.stats.procs.cpu", cpuPercentage, timestamp, dimensions, ch) {
+				// 	return
+				// }
+				fmt.Printf("name: %s, percentage: %f\n", name, cpuPercentage)
+			}
+
+			previousStats[pidStr] = procTime
+		}
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func ioStats(ep *errplane.Errplane, ch chan error) {
