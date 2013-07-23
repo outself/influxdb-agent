@@ -1,5 +1,5 @@
 general:
-  udp-host: udp.apiv3.errplane.com
+  udp-host: udp.apiv3.errplane.com:8126
   http-host: w.apiv3.errplane.com
 
   api-key:      # your api key (Settings/Organization)
