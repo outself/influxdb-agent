@@ -6,4 +6,5 @@ general:
   app-key: ac361914                             # your app key (Settings/Applications)
   environment: staging                          # your environment (Settings/Applications)
 
-  sleep: "10s"
+  sleep: 10s                                    # frequency of sampling (accepted suffix, s for seconds, m for minutes and h for hours)
+  proxy:                                        # proxy to use when making http requests (e.g. https://201.20.177.185:8080/)

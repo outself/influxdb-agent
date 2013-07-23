@@ -14,6 +14,7 @@ import (
 
 var (
 	hostname    string
+	proxy       string
 	udpHost     string
 	httpHost    string
 	appKey      string
@@ -42,6 +43,9 @@ func main() {
 	}
 
 	ep := errplane.New(httpHost, udpHost, appKey, environment, apiKey)
+	if proxy != "" {
+		ep.SetProxy(proxy)
+	}
 	ch := make(chan error)
 	go memStats(ep, ch)
 	go cpuStats(ep, ch)
@@ -74,6 +78,7 @@ func initConfig(path string) error {
 	if err != nil {
 		return err
 	}
+	proxy = general["proxy"].(string)
 	return nil
 }
 
