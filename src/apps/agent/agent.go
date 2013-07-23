@@ -19,6 +19,7 @@ var (
 	appKey      string
 	environment string
 	apiKey      string
+	sleep       time.Duration
 )
 
 func init() {
@@ -68,6 +69,11 @@ func initConfig(path string) error {
 	environment = general["environment"].(string)
 	appKey = general["app-key"].(string)
 	apiKey = general["api-key"].(string)
+	sleepStr := general["sleep"].(string)
+	sleep, err = time.ParseDuration(sleepStr)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -118,7 +124,7 @@ func ioStats(ep *errplane.Errplane, ch chan error) {
 
 		prevDiskUsages = diskUsages
 		prevTimeStamp = timestamp
-		time.Sleep(10 * time.Second)
+		time.Sleep(sleep)
 	}
 }
 
@@ -158,7 +164,7 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 			return
 		}
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(sleep)
 	}
 }
 
@@ -186,7 +192,7 @@ func diskSpaceStats(ep *errplane.Errplane, ch chan error) {
 				return
 			}
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(sleep)
 	}
 }
 
@@ -229,6 +235,6 @@ func cpuStats(ep *errplane.Errplane, ch chan error) {
 		}
 		skipFirst = false
 		prevCpu = cpu
-		time.Sleep(10 * time.Second)
+		time.Sleep(sleep)
 	}
 }

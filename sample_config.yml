@@ -5,3 +5,5 @@ general:
   api-key: 962cdc9b-15e7-4b25-9a0d-24a45cfc6bc1 # your api key (Settings/Organization)
   app-key: ac361914                             # your app key (Settings/Applications)
   environment: staging                          # your environment (Settings/Applications)
+
+  sleep: "10s"
