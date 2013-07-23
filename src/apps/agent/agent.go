@@ -70,7 +70,6 @@ func initLog() error {
 		level = log.ERROR
 	}
 
-	// Create a default logger that is logging messages of FINE or higher to filename, no rotation
 	log.AddFilter("file", level, log.NewFileLogWriter(logFile, false))
 	return nil
 }
