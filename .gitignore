@@ -7,3 +7,6 @@ TAGS
 *.sh
 !build.sh
 !exports.sh
+!scripts/post_install.sh
+!package.sh
+out_rpm/
