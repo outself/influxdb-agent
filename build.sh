@@ -9,6 +9,7 @@ fi
 
 go get $build_args github.com/errplane/errplane-go \
     github.com/cloudfoundry/gosigar \
-    launchpad.net/goyaml
+    launchpad.net/goyaml \
+    code.google.com/p/log4go
 
 go build apps/agent

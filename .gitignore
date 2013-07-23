@@ -14,3 +14,4 @@ test_config.yml
 src/github.com/errplane/errplane-go/
 src/github.com/cloudfoundry/gosigar/
 src/launchpad.net/goyaml
+src/code.google.com/p/log4go

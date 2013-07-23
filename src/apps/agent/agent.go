@@ -1,6 +1,7 @@
 package main
 
 import (
+	log "code.google.com/p/log4go"
 	"flag"
 	"fmt"
 	"github.com/cloudfoundry/gosigar"
@@ -21,22 +22,21 @@ var (
 	environment string
 	apiKey      string
 	sleep       time.Duration
+	logFile     string
+	logLevel    string
 )
-
-func init() {
-	var err error
-	hostname, err = os.Hostname()
-	if err != nil {
-		fmt.Printf("Cannot determine hostname. Error: %s\n", err)
-		os.Exit(1)
-	}
-}
 
 func main() {
 	config := flag.String("config", "/etc/errplane-agent/config.yml", "The agent config file")
 	flag.Parse()
 
 	err := initConfig(*config)
+	if err != nil {
+		fmt.Printf("Error while reading configuration. Error: %s", err)
+		os.Exit(1)
+	}
+
+	err = initLog()
 	if err != nil {
 		fmt.Printf("Error while reading configuration. Error: %s", err)
 		os.Exit(1)
@@ -51,13 +51,38 @@ func main() {
 	go cpuStats(ep, ch)
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
-	fmt.Printf("Agent started successfully\n")
+	log.Info("Agent started successfully")
 	err = <-ch
-	fmt.Printf("Data collection stopped unexpectedly. Error: %s\n", err)
+	log.Error("Data collection stopped unexpectedly. Error: %s", err)
+	log.Close()
+	time.Sleep(1 * time.Second)
 	return
 }
 
+func initLog() error {
+	level := log.DEBUG
+	switch logLevel {
+	case "info":
+		level = log.INFO
+	case "warn":
+		level = log.WARNING
+	case "error":
+		level = log.ERROR
+	}
+
+	// Create a default logger that is logging messages of FINE or higher to filename, no rotation
+	log.AddFilter("file", level, log.NewFileLogWriter(logFile, false))
+	return nil
+}
+
 func initConfig(path string) error {
+	var err error
+	hostname, err = os.Hostname()
+	if err != nil {
+		fmt.Printf("Cannot determine hostname. Error: %s\n", err)
+		os.Exit(1)
+	}
+
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
@@ -78,7 +103,12 @@ func initConfig(path string) error {
 	if err != nil {
 		return err
 	}
-	proxy = general["proxy"].(string)
+	proxy_ := general["proxy"]
+	if proxy_ != nil {
+		proxy = proxy_.(string)
+	}
+	logFile = general["log-file"].(string)
+	logLevel = general["log-level"].(string)
 	return nil
 }
 
@@ -112,7 +142,7 @@ func ioStats(ep *errplane.Errplane, ch chan error) {
 			for _, diskUsage := range diskUsages {
 				prevDiskUsage := devNameToDiskUsage[diskUsage.Name]
 				if prevDiskUsage == nil {
-					fmt.Printf("Cannot find %s in previous disk usage\n", diskUsage.Name)
+					log.Warn("Cannot find %s in previous disk usage", diskUsage.Name)
 					continue
 				}
 
