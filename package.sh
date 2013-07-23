@@ -39,5 +39,5 @@ rm errplane-agent*.rpm
 rm errplane-agent*.deb
 pushd out_rpm
 fpm  -s dir -t rpm --after-install /tmp/post_install.sh -n errplane-agent -v $version .
-fpm  -s dir -t deb --after-install /tmp/post_install.sh -n errplane-agent -v $version .
+fpm  -s dir -t deb --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version .
 popd

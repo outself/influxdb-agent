@@ -10,7 +10,8 @@ if [ ! -e "/etc/errplane-agent/config.yml" ]; then
     cp /data/errplane-agent/current/sample_config.yml /etc/errplane-agent/config.yml
 fi
 
-chown -R errplane:errplane /data/errplane-agent/shared/log
-chown -R errplane:errplane /data/errplane-agent/current/
+chown errplane:errplane -R /etc/errplane-agent/config.yml
+chown errplane:errplane -R /data/errplane-agent/current
+chown errplane:errplane -R /usr/bin/errplane-agent
 
 echo "Finished updating the Errplane agent"
