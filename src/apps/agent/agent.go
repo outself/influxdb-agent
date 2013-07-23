@@ -55,7 +55,7 @@ func main() {
 	err = <-ch
 	log.Error("Data collection stopped unexpectedly. Error: %s", err)
 	log.Close()
-	time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second) // give the logger a chance to close and write to the file
 	return
 }
 
