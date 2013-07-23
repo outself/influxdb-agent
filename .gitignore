@@ -1,7 +1,5 @@
 pkg/
 *~
-src/github.com/errplane/errplane-go/
-src/github.com/cloudfoundry/gosigar/
 /agent
 TAGS
 *.sh
@@ -10,3 +8,9 @@ TAGS
 !scripts/post_install.sh
 !package.sh
 out_rpm/
+test_config.yml
+
+# external dependencies
+src/github.com/errplane/errplane-go/
+src/github.com/cloudfoundry/gosigar/
+src/launchpad.net/goyaml
