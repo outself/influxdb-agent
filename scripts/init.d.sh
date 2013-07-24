@@ -36,7 +36,7 @@ case $1 in
         log_daemon_msg "Starting the process" "$name"
         # Start the daemon with the help of start-stop-daemon
         # Log the message appropriately
-        if start-stop-daemon --start --quiet --oknodo --pidfile $pidfile --exec $daemon ; then
+        if start-stop-daemon -c errplane:errplane -d / -b --start --quiet --oknodo --pidfile $pidfile --exec $daemon ; then
             log_end_msg 0
         else
             log_end_msg 1

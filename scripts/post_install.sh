@@ -14,6 +14,7 @@ chown errplane:errplane -R /etc/errplane-agent/config.yml
 chown errplane:errplane -R /data/errplane-agent/current
 chown errplane:errplane -R /usr/bin/errplane-agent
 
-update-rc.d /data/errplane-agent/current/init.d/errplane-agent defaults
+update-rc.d -f errplane-agent remove
+update-rc.d errplane-agent defaults
 
 echo "Finished updating the Errplane agent"

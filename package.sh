@@ -21,7 +21,7 @@ gem install fpm
 version=$1
 data_dir=out_rpm/data/errplane-agent/versions/$version/
 config_dir=out_rpm/etc/errplane-agent
-initd_dir=out_rpm/etc/errplane-agent/init.d
+initd_dir=out_rpm/etc/init.d/
 log_dir=out_rpm/data/errplane-agent/shared/log
 
 rm -rf out_rpm
