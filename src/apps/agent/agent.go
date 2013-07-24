@@ -16,17 +16,18 @@ import (
 )
 
 var (
-	hostname      string
-	proxy         string
-	udpHost       string
-	httpHost      string
-	appKey        string
-	environment   string
-	apiKey        string
-	sleep         time.Duration
-	logFile       string
-	logLevel      string
-	topNProcesses int
+	hostname           string
+	proxy              string
+	udpHost            string
+	httpHost           string
+	appKey             string
+	environment        string
+	apiKey             string
+	sleep              time.Duration
+	logFile            string
+	logLevel           string
+	topNProcesses      int
+	monitoredProcesses []*Process
 )
 
 func main() {
@@ -57,6 +58,7 @@ func main() {
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
 	go procStats(ep, ch)
+	go monitorProceses(ep, monitoredProcesses)
 	log.Info("Agent started successfully")
 	err = <-ch
 	log.Error("Data collection stopped unexpectedly. Error: %s", err)
@@ -115,6 +117,55 @@ func initConfig(path string) error {
 	logFile = general["log-file"].(string)
 	logLevel = general["log-level"].(string)
 	topNProcesses = general["top-n-processes"].(int)
+
+	// FIXME: this should come from the backend
+
+	// get the processes that we should monitor
+	processes := m["processes"].([]interface{})
+	for _, process := range processes {
+		var name, startCmd, stopCmd, statusCmd, user string
+		switch x := process.(type) {
+		case map[interface{}]interface{}:
+			if len(x) != 1 {
+				return fmt.Errorf("Bad configuration file at %v", x)
+			}
+			for processName, _specs := range x {
+				name = processName.(string)
+				specs := _specs.(map[interface{}]interface{})
+				if cmd, ok := specs["start"]; ok {
+					startCmd = cmd.(string)
+				}
+			}
+		case string:
+			name = x
+		default:
+			return fmt.Errorf("Bad configuration of type %T in the `processes` section", x)
+		}
+
+		if startCmd == "" {
+			startCmd = fmt.Sprintf("service start %s", name)
+		}
+		if stopCmd == "" {
+			stopCmd = fmt.Sprintf("service stop %s", name)
+		}
+		if statusCmd == "" {
+			statusCmd = "ps"
+		}
+		if user == "" {
+			user = "root"
+		}
+
+		log.Info("Adding process %s to the list of monitored processes", name)
+
+		monitoredProcesses = append(monitoredProcesses, &Process{
+			name:      name,
+			startCmd:  startCmd,
+			stopCmd:   stopCmd,
+			statusCmd: statusCmd,
+			user:      user,
+		})
+	}
+
 	return nil
 }
 
