@@ -127,12 +127,12 @@ func report(ep *errplane.Errplane, metric string, value float64, timestamp time.
 }
 
 func procStats(ep *errplane.Errplane, ch chan error) {
-	pids := sigar.ProcList{}
-	pids.Get()
-
 	var previousStats []ProcStat
 
 	for {
+		pids := sigar.ProcList{}
+		pids.Get()
+
 		procStats := make([]ProcStat, 0, len(pids.List))
 
 		for _, pid := range pids.List {
