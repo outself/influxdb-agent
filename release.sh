@@ -31,7 +31,7 @@ git push origin $current_branch
 git push origin --tags
 
 for filepath in out_rpm/*.{rpm,deb}; do
-    [ -e "$i" ] || continue
+    [ -e "$filepath" ] || continue
     filename=`dirname $filepath`
     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath
 done
