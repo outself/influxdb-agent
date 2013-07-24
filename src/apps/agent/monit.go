@@ -45,6 +45,11 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 		for _, pid := range pids.List {
 			procStat := getProcStat(pid)
 
+			if procStat == nil {
+				log.Warn("Cannot get stat for pid %d", pid)
+				continue
+			}
+
 			state := procStat.state
 
 			if err := state.Get(pid); err != nil {
