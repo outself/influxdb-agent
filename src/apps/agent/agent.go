@@ -9,22 +9,24 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 	"utils"
 )
 
 var (
-	hostname    string
-	proxy       string
-	udpHost     string
-	httpHost    string
-	appKey      string
-	environment string
-	apiKey      string
-	sleep       time.Duration
-	logFile     string
-	logLevel    string
+	hostname      string
+	proxy         string
+	udpHost       string
+	httpHost      string
+	appKey        string
+	environment   string
+	apiKey        string
+	sleep         time.Duration
+	logFile       string
+	logLevel      string
+	topNProcesses int
 )
 
 func main() {
@@ -110,6 +112,7 @@ func initConfig(path string) error {
 	}
 	logFile = general["log-file"].(string)
 	logLevel = general["log-level"].(string)
+	topNProcesses = general["top-n-processes"].(int)
 	return nil
 }
 
@@ -122,59 +125,55 @@ func report(ep *errplane.Errplane, metric string, value float64, timestamp time.
 	return false
 }
 
-type ProcStat struct {
-	cpu    sigar.ProcTime
-	memory sigar.ProcMem
-	state  sigar.ProcState
-}
-
 func procStats(ep *errplane.Errplane, ch chan error) {
 	pids := sigar.ProcList{}
 	pids.Get()
 
-	previousStats := make(map[string]interface{})
+	var previousStats []ProcStat
 
 	for {
+		procStats := make([]ProcStat, 0, len(pids.List))
+
 		for _, pid := range pids.List {
-			timestamp := time.Now()
-
-			state := sigar.ProcState{}
-			mem := sigar.ProcMem{}
-			procTime := sigar.ProcTime{}
-
-			if err := state.Get(pid); err != nil {
+			stat := getProcStat(pid)
+			if stat == nil {
 				continue
 			}
-			if err := mem.Get(pid); err != nil {
-				continue
-			}
-			if err := procTime.Get(pid); err != nil {
-				continue
-			}
-
-			pidStr := strconv.Itoa(pid)
-			pidPreviousStats := previousStats[pidStr]
-
-			name := state.Name
-			// dimensions := errplane.Dimensions{
-			// 	"name": name,
-			// 	"pid":  pidStr,
-			// }
-
-			if pidPreviousStats != nil {
-				prevTime := pidPreviousStats.(sigar.ProcTime)
-
-				uptime := uint64(timestamp.Nanosecond()/int(time.Millisecond)) - prevTime.StartTime
-				cpuPercentage := float64(procTime.Total-prevTime.Total) / float64(uptime)
-				// if report(ep, "server.stats.procs.cpu", cpuPercentage, timestamp, dimensions, ch) {
-				// 	return
-				// }
-				fmt.Printf("name: %s, percentage: %f\n", name, cpuPercentage)
-			}
-
-			previousStats[pidStr] = procTime
+			procStats = append(procStats, *stat)
 		}
-		time.Sleep(1 * time.Second)
+
+		if previousStats != nil {
+			mergedStats := mergeStats(previousStats, procStats)
+
+			sort.Sort(ProcStatsSortableByCpu(mergedStats))
+			top10ByCpu := mergedStats[0:topNProcesses]
+			now := time.Now()
+			for _, stat := range top10ByCpu {
+				dimensions := errplane.Dimensions{
+					"pid":  strconv.Itoa(stat.pid),
+					"name": stat.name,
+				}
+
+				if report(ep, "server.stats.procs.cpu", stat.cpuUsage, now, dimensions, ch) {
+					return
+				}
+			}
+			sort.Sort(ProcStatsSortableByMem(mergedStats))
+			top10ByMem := mergedStats[0:topNProcesses]
+			for _, stat := range top10ByMem {
+				dimensions := errplane.Dimensions{
+					"pid":  strconv.Itoa(stat.pid),
+					"name": stat.name,
+				}
+
+				if report(ep, "server.stats.procs.mem", stat.memUsage, now, dimensions, ch) {
+					return
+				}
+			}
+		}
+
+		previousStats = procStats
+		time.Sleep(sleep)
 	}
 }
 
