@@ -44,7 +44,7 @@ rm errplane-agent*.deb
 UPDATE=on ./build.sh -v $version
 cp agent $data_dir/
 pushd out_rpm
-fpm  -s dir -t rpm --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+fpm  -s dir -t rpm --rpm-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 fpm  -s dir -t deb --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 popd
 
@@ -52,7 +52,7 @@ popd
 GOARCH=386 UPDATE=on ./build.sh -v $version
 cp agent $data_dir/
 pushd out_rpm
-fpm  -s dir -t rpm -a 386 --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
-fpm  -s dir -t deb -a 386 --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+setarch i686 fpm -s dir -t rpm --rpm-user errplane --rpm-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+fpm -s dir -t deb -a i686 --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 popd
 
