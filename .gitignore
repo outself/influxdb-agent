@@ -14,5 +14,6 @@ test_config.yml
 # external dependencies
 src/github.com/errplane/errplane-go/
 src/github.com/cloudfoundry/gosigar/
+src/github.com/errplane/gosigar/
 src/launchpad.net/goyaml
 src/code.google.com/p/log4go
