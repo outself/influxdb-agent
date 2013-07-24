@@ -121,8 +121,7 @@ func initConfig(path string) error {
 func report(ep *errplane.Errplane, metric string, value float64, timestamp time.Time, dimensions errplane.Dimensions, ch chan error) bool {
 	err := ep.Report(metric, value, timestamp, "", dimensions)
 	if err != nil {
-		ch <- err
-		return true
+		log.Error("Error while sending report. Error: %s", err)
 	}
 	return false
 }
