@@ -93,6 +93,13 @@ func getProcessStatus(process *Process, currentProcessesSnapshot map[string]siga
 func reportProcessDown(ep *errplane.Errplane, process *Process) {
 	log.Info("Process %s went down, restarting and reporting event", process.name)
 	reportProcessEvent(ep, process.name, "down")
+
+	args := []string{"-u", process.user, "-n"}
+	args = append(args, strings.Fields(process.startCmd)...)
+	cmd := exec.Command("sudo", args...)
+	if err := cmd.Run(); err != nil {
+		log.Error("Error while starting service %s. Error: %s", process.name, err)
+	}
 }
 
 func reportProcessUp(ep *errplane.Errplane, process *Process) {
