@@ -21,14 +21,15 @@ gem install fpm
 version=$1
 data_dir=out_rpm/data/errplane-agent/versions/$version/
 config_dir=out_rpm/etc/errplane-agent
+initd_dir=out_rpm/etc/errplane-agent/init.d
 log_dir=out_rpm/data/errplane-agent/shared/log
-initd=out_rpm/etc/init.d/
 
 rm -rf out_rpm
-mkdir -p $data_dir $initd $config_dir $log_dir
+mkdir -p $data_dir $initd_dir $config_dir $log_dir
 
 cp agent $data_dir/
 cp sample_config.yml $data_dir
+cp scripts/init.d.sh $initd_dir/errplane-agent
 
 cp scripts/post_install.sh /tmp/post_install.sh
 sed -i "s/REPLACE_VERSION/${version}/g" /tmp/post_install.sh
