@@ -1,6 +1,30 @@
 # agent
 
-# Installing
+## Building
+
+`./build.sh` should take care of building the binary and installing the go dependencies. If ran with `UPDATE=on` env variable
+the script will update the dependencies, i.e. run `go get -u` instead of just `go get`.
+
+## Building for different architectures
+
+### Compiling Go for 386
+
+Run the following
+
+```
+cd $GOROOT/src
+GOARCH=386 ./make.bash --no-clean
+```
+
+### Building for 386 on x86_64
+
+`GOARCH=386 ./build.sh`
+
+## Packaging
+
+`./package.sh major.minor.update` will generate .deb files in out_rpm.
+
+## Installing
 
 Create an errplane user using the following instruction:
 
