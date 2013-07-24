@@ -94,6 +94,10 @@ func reportProcessDown(ep *errplane.Errplane, process *Process) {
 	log.Info("Process %s went down, restarting and reporting event", process.name)
 	reportProcessEvent(ep, process.name, "down")
 
+	// The following requires an entry like the following in the sudoers file
+	// errplane ALL=(root) NOPASSWD: /usr/sbin/service mysql start, (root) NOPASSWD: /usr/sbin/service mysql stop
+	// where root is the user that is used to start and stop the service
+
 	args := []string{"-u", process.user, "-n"}
 	args = append(args, strings.Fields(process.startCmd)...)
 	cmd := exec.Command("sudo", args...)
