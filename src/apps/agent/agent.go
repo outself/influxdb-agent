@@ -58,7 +58,7 @@ func main() {
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
 	go procStats(ep, ch)
-	go monitorProceses(ep, monitoredProcesses)
+	go monitorProceses(ep, monitoredProcesses, ch)
 	log.Info("Agent started successfully")
 	err = <-ch
 	log.Error("Data collection stopped unexpectedly. Error: %s", err)
@@ -178,20 +178,20 @@ func report(ep *errplane.Errplane, metric string, value float64, timestamp time.
 }
 
 func procStats(ep *errplane.Errplane, ch chan error) {
-	var previousStats []ProcStat
+	var previousStats map[int]ProcStat
 
 	for {
 		pids := sigar.ProcList{}
 		pids.Get()
 
-		procStats := make([]ProcStat, 0, len(pids.List))
+		procStats := make(map[int]ProcStat)
 
 		for _, pid := range pids.List {
 			stat := getProcStat(pid)
 			if stat == nil {
 				continue
 			}
-			procStats = append(procStats, *stat)
+			procStats[pid] = *stat
 		}
 
 		if previousStats != nil {
@@ -201,24 +201,14 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 			top10ByCpu := mergedStats[0:topNProcesses]
 			now := time.Now()
 			for _, stat := range top10ByCpu {
-				dimensions := errplane.Dimensions{
-					"pid":  strconv.Itoa(stat.pid),
-					"name": stat.name,
-				}
-
-				if report(ep, "server.stats.procs.cpu", stat.cpuUsage, now, dimensions, ch) {
+				if reportProcessCpuUsage(ep, &stat, now, ch) {
 					return
 				}
 			}
 			sort.Sort(ProcStatsSortableByMem(mergedStats))
 			top10ByMem := mergedStats[0:topNProcesses]
 			for _, stat := range top10ByMem {
-				dimensions := errplane.Dimensions{
-					"pid":  strconv.Itoa(stat.pid),
-					"name": stat.name,
-				}
-
-				if report(ep, "server.stats.procs.mem", stat.memUsage, now, dimensions, ch) {
+				if reportProcessMemUsage(ep, &stat, now, ch) {
 					return
 				}
 			}
@@ -227,6 +217,39 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 		previousStats = procStats
 		time.Sleep(sleep)
 	}
+}
+
+func reportProcessCpuUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, ch chan error) bool {
+	return reportProcessMetric(ep, stat, "cpu", now, ch)
+}
+
+func reportProcessMemUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, ch chan error) bool {
+	return reportProcessMetric(ep, stat, "mem", now, ch)
+}
+
+func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName string, now time.Time, ch chan error) bool {
+	var value float64
+	var metric string
+	switch metricName {
+	case "cpu":
+		metric = "server.stats.procs.cpu"
+		value = stat.cpuUsage
+	case "mem":
+		metric = "server.stats.procs.mem"
+		value = stat.memUsage
+	default:
+		log.Error("unknown metric name %s", metricName)
+		return true
+	}
+	dimensions := errplane.Dimensions{
+		"pid":  strconv.Itoa(stat.pid),
+		"name": stat.name,
+	}
+
+	if report(ep, metric, value, now, dimensions, ch) {
+		return true
+	}
+	return false
 }
 
 func ioStats(ep *errplane.Errplane, ch chan error) {

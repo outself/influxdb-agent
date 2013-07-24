@@ -39,16 +39,11 @@ type MergedProcStat struct {
 	memUsage float64
 }
 
-func mergeStats(old, current []ProcStat) []MergedProcStat {
-	pidToStat := make(map[int]ProcStat)
-	for _, oldStat := range old {
-		pidToStat[oldStat.pid] = oldStat
-	}
-
+func mergeStats(old, current map[int]ProcStat) []MergedProcStat {
 	mergedStat := make([]MergedProcStat, 0, len(current))
 
-	for _, newStat := range current {
-		oldStat, ok := pidToStat[newStat.pid]
+	for pid, newStat := range current {
+		oldStat, ok := old[pid]
 		if !ok {
 			continue
 		}

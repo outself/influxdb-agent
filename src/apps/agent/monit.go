@@ -26,20 +26,26 @@ type Process struct {
 	lastStatus Status
 }
 
-func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process) {
+func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch chan error) {
 	pids := sigar.ProcList{}
 
-	var previousProcessesSnapshot map[string]sigar.ProcState
+	var previousProcessesSnapshot map[string]ProcStat
+	var previousProcessesSnapshotByPid map[int]ProcStat
 
 	monitoringSleep := math.Max(float64(sleep/10), 1)
 
 	for {
 		pids.Get()
 
-		processes := make(map[string]sigar.ProcState)
+		processes := make(map[string]ProcStat)
+		processesByPid := make(map[int]ProcStat)
+
+		now := time.Now()
 
 		for _, pid := range pids.List {
-			state := sigar.ProcState{}
+			procStat := getProcStat(pid)
+
+			state := procStat.state
 
 			if err := state.Get(pid); err != nil {
 				log.Error("Cannot retrieve stat of pid %d", pid)
@@ -47,7 +53,8 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process) {
 			}
 
 			// FIXME: what if there is more than one process ?
-			processes[state.Name] = state
+			processes[state.Name] = *procStat
+			processesByPid[pid] = *procStat
 		}
 
 		if previousProcessesSnapshot != nil {
@@ -66,15 +73,23 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process) {
 				monitoredProcess.lastStatus = status
 				// process is still up, or is still down. Do nothing in both cases.
 			}
+
+			// report the cpu usage and memory usage
+			mergedStats := mergeStats(previousProcessesSnapshotByPid, processesByPid)
+			for _, stat := range mergedStats {
+				reportProcessCpuUsage(ep, &stat, now, ch)
+				reportProcessMemUsage(ep, &stat, now, ch)
+			}
 		}
 
 		previousProcessesSnapshot = processes
+		previousProcessesSnapshotByPid = processesByPid
 
 		time.Sleep(time.Duration(monitoringSleep))
 	}
 }
 
-func getProcessStatus(process *Process, currentProcessesSnapshot map[string]sigar.ProcState) Status {
+func getProcessStatus(process *Process, currentProcessesSnapshot map[string]ProcStat) Status {
 	if process.statusCmd == "ps" {
 		state, ok := currentProcessesSnapshot[process.name]
 
