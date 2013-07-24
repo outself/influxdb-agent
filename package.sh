@@ -44,15 +44,15 @@ rm errplane-agent*.deb
 UPDATE=on ./build.sh -v $version
 cp agent $data_dir/
 pushd out_rpm
-fpm  -s dir -t rpm --after-install /tmp/post_install.sh -n errplane-agent -v $version .
-fpm  -s dir -t deb --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version .
+fpm  -s dir -t rpm --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+fpm  -s dir -t deb --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 popd
 
 # build the 32 bit version
 GOARCH=386 UPDATE=on ./build.sh -v $version
 cp agent $data_dir/
 pushd out_rpm
-fpm  -s dir -t rpm -a 386 --after-install /tmp/post_install.sh -n errplane-agent -v $version .
-fpm  -s dir -t deb -a 386 --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version .
+fpm  -s dir -t rpm -a 386 --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+fpm  -s dir -t deb -a 386 --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 popd
 
