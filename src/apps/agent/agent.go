@@ -45,7 +45,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	ep := errplane.New(httpHost, udpHost, appKey, environment, apiKey)
+	ep := errplane.New(appKey, environment, apiKey)
+	ep.SetHttpHost(httpHost)
+	ep.SetUdpAddr(udpHost)
 	if proxy != "" {
 		ep.SetProxy(proxy)
 	}
