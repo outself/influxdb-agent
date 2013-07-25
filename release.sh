@@ -33,5 +33,5 @@ git push origin --tags
 for filepath in out_rpm/*.{rpm,deb}; do
     [ -e "$filepath" ] || continue
     filename=`basename $filepath`
-    AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --grant-read Everyone
+    AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --acl public-read
 done
