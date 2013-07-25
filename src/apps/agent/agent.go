@@ -140,6 +140,7 @@ func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName
 	dimensions := errplane.Dimensions{
 		"pid":  strconv.Itoa(stat.pid),
 		"name": stat.name,
+		"host": Hostname,
 	}
 
 	if report(ep, metric, value, now, dimensions, ch) {
