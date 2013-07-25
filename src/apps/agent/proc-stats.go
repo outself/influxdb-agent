@@ -60,8 +60,8 @@ func mergeStats(old, current map[int]ProcStat) []MergedProcStat {
 			continue
 		}
 
-		uptime := newStat.now.Nanosecond()/int(time.Millisecond) - oldStat.now.Nanosecond()/int(time.Millisecond)
-		cpuUsage := float64(newStat.cpu.Total-oldStat.cpu.Total) / float64(uptime)
+		uptime := newStat.now.Sub(oldStat.now).Nanoseconds() / int64(time.Millisecond)
+		cpuUsage := float64(newStat.cpu.Total-oldStat.cpu.Total) / float64(uptime) * 100
 		memUsage := float64(newStat.memory.Resident)
 		mergedStat = append(mergedStat, MergedProcStat{newStat.pid, newStat.state.Name, cpuUsage, memUsage})
 	}
