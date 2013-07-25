@@ -44,10 +44,14 @@ general:
 
 # processes:
 #   - mysqld:
-#       start:  service mysql start
-#       stop:   service mysql start
-#       status: ps
-#       user:   root
+#       start:  service mysql start             # the command to run to start the service
+#       stop:   service mysql start             # the command to run to stop the service
+#       status: name                            # check the status of the process using the specified method:
+                                                #   1. 'name' match the process name (e.g. match mysqld)
+                                                #   2. 'cmdline' apply the regex match against the entire command line
+                                                #   3. 'other value' use the value as the command to run (status code 0 means the process is running)
+#       regex: .*ruby.*status-monitor.*         # see 'status' above
+#       user:   root                            # the agent will run the start and stop command using 'sudo -u username command-to-run'
 `
 
 	content := fmt.Sprintf(sample, *apiKey, *appKey, *env)
