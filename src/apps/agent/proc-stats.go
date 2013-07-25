@@ -1,6 +1,7 @@
 package main
 
 import (
+	log "code.google.com/p/log4go"
 	"github.com/errplane/gosigar"
 	"time"
 )
@@ -47,6 +48,18 @@ func mergeStats(old, current map[int]ProcStat) []MergedProcStat {
 		if !ok {
 			continue
 		}
+
+		if newStat.now.Before(oldStat.now) {
+			// skip the process, and may be log this as info
+			log.Warn("Possibly a bug, time of new snapshot is less than time of the old snapshot")
+			continue
+		}
+
+		if newStat.cpu.Total < oldStat.cpu.Total {
+			log.Info("A new process seems to have stolen the pid of an old p")
+			continue
+		}
+
 		uptime := newStat.now.Nanosecond()/int(time.Millisecond) - oldStat.now.Nanosecond()/int(time.Millisecond)
 		cpuUsage := float64(newStat.cpu.Total-oldStat.cpu.Total) / float64(uptime)
 		memUsage := float64(newStat.memory.Resident)
