@@ -1,6 +1,5 @@
 pkg/
 *~
-/agent
 TAGS
 *.sh
 !build.sh
@@ -18,3 +17,7 @@ src/github.com/cloudfoundry/gosigar/
 src/github.com/errplane/gosigar/
 src/launchpad.net/goyaml
 src/code.google.com/p/log4go
+
+# binaries
+/config-generator
+/agent

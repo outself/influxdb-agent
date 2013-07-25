@@ -13,3 +13,4 @@ go get $build_args github.com/errplane/errplane-go \
     code.google.com/p/log4go
 
 go build apps/agent
+go build apps/config-generator
