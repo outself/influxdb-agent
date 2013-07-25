@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
+	"regexp"
 	"time"
 )
 
@@ -65,6 +66,7 @@ func InitConfig(path string) error {
 	processes := m["processes"].([]interface{})
 	for _, process := range processes {
 		var name, startCmd, stopCmd, statusCmd, user string
+		var regex *regexp.Regexp
 		switch x := process.(type) {
 		case map[interface{}]interface{}:
 			if len(x) != 1 {
@@ -78,6 +80,15 @@ func InitConfig(path string) error {
 				}
 				if cmd, ok := specs["stop"]; ok {
 					stopCmd = cmd.(string)
+				}
+				if cmd, ok := specs["status"]; ok {
+					statusCmd = cmd.(string)
+				}
+				if _regex, ok := specs["regex"]; ok {
+					regex, err = regexp.Compile(_regex.(string))
+					if err != nil {
+						return err
+					}
 				}
 			}
 		case string:
@@ -93,7 +104,7 @@ func InitConfig(path string) error {
 			stopCmd = fmt.Sprintf("service %s stop", name)
 		}
 		if statusCmd == "" {
-			statusCmd = "ps"
+			statusCmd = "name"
 		}
 		if user == "" {
 			user = "root"
@@ -103,6 +114,7 @@ func InitConfig(path string) error {
 
 		MonitoredProcesses = append(MonitoredProcesses, &Process{
 			Name:      name,
+			Regex:     regex,
 			StartCmd:  startCmd,
 			StopCmd:   stopCmd,
 			StatusCmd: statusCmd,

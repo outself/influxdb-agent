@@ -37,11 +37,6 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 
 			state := procStat.state
 
-			if err := state.Get(pid); err != nil {
-				log.Error("Cannot retrieve stat of pid %d", pid)
-				continue
-			}
-
 			// FIXME: what if there is more than one process ?
 			processes[state.Name] = *procStat
 			processesByPid[pid] = *procStat
@@ -80,7 +75,7 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 }
 
 func getProcessStatus(process *Process, currentProcessesSnapshot map[string]ProcStat) Status {
-	if process.StatusCmd == "ps" {
+	if process.StatusCmd == "name" {
 		state, ok := currentProcessesSnapshot[process.Name]
 
 		log.Fine("Getting status of %s, %v, %v", process.Name, state, ok)
@@ -89,6 +84,20 @@ func getProcessStatus(process *Process, currentProcessesSnapshot map[string]Proc
 			return UP
 		}
 		return DOWN
+	} else if process.StatusCmd == "regex" {
+		found := false
+
+		for _, proc := range currentProcessesSnapshot {
+			if process.Regex.MatchString(proc.state.Name) {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return DOWN
+		}
+		return UP
 	}
 
 	log.Error("Unknown status command '%s' used. Assuming process down", process.StatusCmd)

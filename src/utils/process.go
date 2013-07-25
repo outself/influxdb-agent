@@ -1,5 +1,9 @@
 package utils
 
+import (
+	"regexp"
+)
+
 type Status int
 
 const (
@@ -9,6 +13,7 @@ const (
 
 type Process struct {
 	Name       string
+	Regex      *regexp.Regexp
 	StartCmd   string
 	StopCmd    string
 	StatusCmd  string
