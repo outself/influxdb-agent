@@ -8,7 +8,6 @@ ln -sfn /data/errplane-agent/current/config-generator /usr/bin/errplane-config-g
 ln -sfn /data/errplane-agent/current/sudoers-generator /usr/bin/errplane-sudoers-generator
 ln -sfn /data/errplane-agent/shared/log.txt /data/errplane-agent/current/log.txt
 
-chown errplane:errplane -R /etc/errplane-agent/config.yml
 chown errplane:errplane -R /data/errplane-agent/current
 chown errplane:errplane -R /usr/bin/errplane-agent
 
