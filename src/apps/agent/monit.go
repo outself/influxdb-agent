@@ -8,23 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	. "utils"
 )
-
-type Status int
-
-const (
-	UP Status = iota
-	DOWN
-)
-
-type Process struct {
-	name       string
-	startCmd   string
-	stopCmd    string
-	statusCmd  string
-	user       string
-	lastStatus Status
-}
 
 func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch chan error) {
 	pids := sigar.ProcList{}
@@ -32,7 +17,7 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 	var previousProcessesSnapshot map[string]ProcStat
 	var previousProcessesSnapshotByPid map[int]ProcStat
 
-	monitoringSleep := math.Max(float64(sleep/10), 1)
+	monitoringSleep := math.Max(float64(Sleep/10), 1)
 
 	for {
 		pids.Get()
@@ -67,7 +52,7 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 			for _, monitoredProcess := range monitoredProcesses {
 				status := getProcessStatus(monitoredProcess, processes)
 
-				if status != monitoredProcess.lastStatus {
+				if status != monitoredProcess.LastStatus {
 					if status == UP {
 						reportProcessUp(ep, monitoredProcess)
 					} else {
@@ -75,7 +60,7 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 						reportProcessDown(ep, monitoredProcess)
 					}
 				}
-				monitoredProcess.lastStatus = status
+				monitoredProcess.LastStatus = status
 				// process is still up, or is still down. Do nothing in both cases.
 			}
 
@@ -95,10 +80,10 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 }
 
 func getProcessStatus(process *Process, currentProcessesSnapshot map[string]ProcStat) Status {
-	if process.statusCmd == "ps" {
-		state, ok := currentProcessesSnapshot[process.name]
+	if process.StatusCmd == "ps" {
+		state, ok := currentProcessesSnapshot[process.Name]
 
-		log.Fine("Getting status of %s, %v, %v", process.name, state, ok)
+		log.Fine("Getting status of %s, %v, %v", process.Name, state, ok)
 
 		if ok {
 			return UP
@@ -106,34 +91,34 @@ func getProcessStatus(process *Process, currentProcessesSnapshot map[string]Proc
 		return DOWN
 	}
 
-	log.Error("Unknown status command '%s' used. Assuming process down", process.statusCmd)
+	log.Error("Unknown status command '%s' used. Assuming process down", process.StatusCmd)
 	return DOWN
 }
 
 func reportProcessDown(ep *errplane.Errplane, process *Process) {
-	log.Info("Process %s went down, restarting and reporting event", process.name)
-	reportProcessEvent(ep, process.name, "down")
+	log.Info("Process %s went down, restarting and reporting event", process.Name)
+	reportProcessEvent(ep, process.Name, "down")
 
 	// The following requires an entry like the following in the sudoers file
 	// errplane ALL=(root) NOPASSWD: /usr/sbin/service mysql start, (root) NOPASSWD: /usr/sbin/service mysql stop
 	// where root is the user that is used to start and stop the service
 
-	args := []string{"-u", process.user, "-n"}
-	args = append(args, strings.Fields(process.startCmd)...)
+	args := []string{"-u", process.User, "-n"}
+	args = append(args, strings.Fields(process.StartCmd)...)
 	cmd := exec.Command("sudo", args...)
 	if err := cmd.Run(); err != nil {
-		log.Error("Error while starting service %s. Error: %s", process.name, err)
+		log.Error("Error while starting service %s. Error: %s", process.Name, err)
 	}
 }
 
 func reportProcessUp(ep *errplane.Errplane, process *Process) {
-	log.Info("Process %s came back up reporting event", process.name)
-	reportProcessEvent(ep, process.name, "up")
+	log.Info("Process %s came back up reporting event", process.Name)
+	reportProcessEvent(ep, process.Name, "up")
 }
 
 func reportProcessEvent(ep *errplane.Errplane, name, status string) {
 	ep.Report("server.process.monitoring", 1.0, time.Now(), "", errplane.Dimensions{
-		"host":    hostname,
+		"host":    Hostname,
 		"process": name,
 		"status":  status,
 	})

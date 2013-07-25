@@ -21,3 +21,4 @@ src/code.google.com/p/log4go
 # binaries
 /config-generator
 /agent
+/sudoers-generator
