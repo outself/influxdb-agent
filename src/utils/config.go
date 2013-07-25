@@ -63,8 +63,12 @@ func InitConfig(path string) error {
 	// FIXME: this should come from the backend
 
 	// get the processes that we should monitor
-	processes := m["processes"].([]interface{})
-	for _, process := range processes {
+	processes := m["processes"]
+
+	if processes == nil {
+		return nil
+	}
+	for _, process := range processes.([]interface{}) {
 		var name, startCmd, stopCmd, statusCmd, user string
 		var regex *regexp.Regexp
 		switch x := process.(type) {
@@ -97,12 +101,6 @@ func InitConfig(path string) error {
 			return fmt.Errorf("Bad configuration of type %T in the `processes` section", x)
 		}
 
-		if startCmd == "" {
-			startCmd = fmt.Sprintf("service %s start", name)
-		}
-		if stopCmd == "" {
-			stopCmd = fmt.Sprintf("service %s stop", name)
-		}
 		if statusCmd == "" {
 			statusCmd = "name"
 		}

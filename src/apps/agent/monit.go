@@ -112,6 +112,10 @@ func reportProcessDown(ep *errplane.Errplane, process *Process) {
 	// errplane ALL=(root) NOPASSWD: /usr/sbin/service mysql start, (root) NOPASSWD: /usr/sbin/service mysql stop
 	// where root is the user that is used to start and stop the service
 
+	if process.StartCmd == "" {
+		log.Warn("No start command found for service %s", process.Name)
+	}
+
 	args := []string{"-u", process.User, "-n"}
 	args = append(args, strings.Fields(process.StartCmd)...)
 	cmd := exec.Command("sudo", args...)
