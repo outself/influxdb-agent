@@ -29,7 +29,6 @@ log_dir=out_rpm/data/errplane-agent/shared/log
 rm -rf out_rpm
 mkdir -p $data_dir $initd_dir $config_dir $log_dir
 
-cp sample_config.yml $data_dir
 cp scripts/init.d.sh $initd_dir/errplane-agent
 
 cp scripts/post_install.sh /tmp/post_install.sh
