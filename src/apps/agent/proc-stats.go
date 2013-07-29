@@ -41,6 +41,7 @@ func getProcStat(pid int) *ProcStat {
 type MergedProcStat struct {
 	pid      int
 	name     string
+	args     []string
 	cpuUsage float64
 	memUsage float64
 }
@@ -68,7 +69,7 @@ func mergeStats(old, current map[int]ProcStat) []MergedProcStat {
 		uptime := newStat.now.Sub(oldStat.now).Nanoseconds() / int64(time.Millisecond)
 		cpuUsage := float64(newStat.cpu.Total-oldStat.cpu.Total) / float64(uptime) * 100
 		memUsage := float64(newStat.memory.Resident)
-		mergedStat = append(mergedStat, MergedProcStat{newStat.pid, newStat.state.Name, cpuUsage, memUsage})
+		mergedStat = append(mergedStat, MergedProcStat{newStat.pid, newStat.state.Name, newStat.args.List, cpuUsage, memUsage})
 	}
 	return mergedStat
 }

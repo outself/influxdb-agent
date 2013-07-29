@@ -2,6 +2,7 @@ package main
 
 import (
 	log "code.google.com/p/log4go"
+	"fmt"
 	"github.com/errplane/errplane-go"
 	"github.com/errplane/gosigar"
 	"math"
@@ -61,9 +62,15 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 
 			// report the cpu usage and memory usage
 			mergedStats := mergeStats(previousProcessesSnapshotByPid, processesByPid)
+			i := 0
 			for _, stat := range mergedStats {
-				reportProcessCpuUsage(ep, &stat, now, ch)
-				reportProcessMemUsage(ep, &stat, now, ch)
+				for _, monitoredProcess := range monitoredProcesses {
+					if processMatches(monitoredProcess, stat) {
+						i += 1
+						reportProcessCpuUsage(ep, &stat, now, ch)
+						reportProcessMemUsage(ep, &stat, now, ch)
+					}
+				}
 			}
 		}
 
@@ -72,6 +79,31 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 
 		time.Sleep(time.Duration(monitoringSleep))
 	}
+}
+
+func processMatches(monitoredProcess *Process, process interface{}) bool {
+	name := ""
+	args := []string{}
+
+	switch x := process.(type) {
+	case MergedProcStat:
+		name = x.name
+		args = x.args
+	case ProcStat:
+		name = x.state.Name
+		args = x.args.List
+	default:
+		panic(fmt.Errorf("Unknwon type %T", process))
+	}
+
+	if monitoredProcess.StatusCmd == "name" {
+		return name == monitoredProcess.Name
+	} else if monitoredProcess.StatusCmd == "regex" {
+		_fullCmd := append([]string{name}, args...)
+		fullCmd := strings.Join(_fullCmd, " ")
+		return monitoredProcess.Regex.MatchString(fullCmd)
+	}
+	return false
 }
 
 func getProcessStatus(process *Process, currentProcessesSnapshot map[string]ProcStat) Status {
@@ -88,7 +120,7 @@ func getProcessStatus(process *Process, currentProcessesSnapshot map[string]Proc
 		found := false
 
 		for _, proc := range currentProcessesSnapshot {
-			if process.Regex.MatchString(proc.state.Name) {
+			if processMatches(process, proc) {
 				found = true
 				break
 			}
