@@ -22,6 +22,7 @@ var (
 	LogLevel           string
 	TopNProcesses      int
 	MonitoredProcesses []*Process
+	Plugins            []*Plugin
 )
 
 func InitConfig(path string) error {
@@ -65,12 +66,44 @@ func InitConfig(path string) error {
 	// get the processes that we should monitor
 	processes := m["processes"]
 
-	if processes == nil {
-		return nil
+	if processes != nil {
+		if err := parseProcesse(processes); err != nil {
+			return err
+		}
 	}
+
+	// FIXME: this should come from the backend
+
+	plugins := m["plugins"]
+
+	if plugins != nil {
+		if err := parsePlugins(plugins); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func parsePlugins(plugins interface{}) error {
+	for name, _plugin := range plugins.(map[interface{}]interface{}) {
+		plugin := _plugin.(map[interface{}]interface{})
+		if plugin["name"] != nil {
+			name = plugin["name"].(string)
+		}
+
+		cmd := plugin["cmd"].(string)
+		Plugins = append(Plugins, &Plugin{cmd, name.(string)})
+	}
+
+	return nil
+}
+
+func parseProcesse(processes interface{}) error {
 	for _, process := range processes.([]interface{}) {
 		var name, startCmd, stopCmd, statusCmd, user string
 		var regex *regexp.Regexp
+		var err error
 		switch x := process.(type) {
 		case map[interface{}]interface{}:
 			if len(x) != 1 {

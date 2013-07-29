@@ -52,6 +52,11 @@ general:
                                                 #   3. 'other value' use the value as the command to run (status code 0 means the process is running)
 #       regex: .*ruby.*status-monitor.*         # see 'status' above
 #       user:   root                            # the agent will run the start and stop command using 'sudo -u username command-to-run'
+
+# plugins:
+#   redis:
+#     cmd:  errplane-redis-plugin -p 6379     # the command to run to start the service
+#     name: redis															# optionally override the name of the service
 `
 
 	content := fmt.Sprintf(sample, *apiKey, *appKey, *env)
