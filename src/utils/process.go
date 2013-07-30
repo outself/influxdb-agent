@@ -12,11 +12,12 @@ const (
 )
 
 type Process struct {
-	Name       string
-	Regex      *regexp.Regexp
-	StartCmd   string
-	StopCmd    string
-	StatusCmd  string
-	User       string
-	LastStatus Status
+	Name          string
+	CompiledRegex *regexp.Regexp `yaml:"-"`
+	Regex         string
+	StartCmd      string `yaml:"start"`
+	StopCmd       string `yaml:"stop"`
+	StatusCmd     string `yaml:"status"`
+	User          string
+	LastStatus    Status
 }

@@ -101,7 +101,7 @@ func processMatches(monitoredProcess *Process, process interface{}) bool {
 	} else if monitoredProcess.StatusCmd == "regex" {
 		_fullCmd := append([]string{name}, args...)
 		fullCmd := strings.Join(_fullCmd, " ")
-		return monitoredProcess.Regex.MatchString(fullCmd)
+		return monitoredProcess.CompiledRegex.MatchString(fullCmd)
 	}
 	return false
 }
