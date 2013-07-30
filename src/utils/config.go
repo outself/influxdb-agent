@@ -98,7 +98,23 @@ func InitConfig(path string) error {
 			return fmt.Errorf("Plugin name cannot be empty")
 		}
 
+		if len(plugin.Instances) == 0 {
+			plugin.Instances = make([]*Instance, 0)
+			plugin.Instances = append(plugin.Instances, &Instance{"default", nil, nil})
+		}
+
 		plugin.Cmd = fmt.Sprintf("/data/errplane-agent/plugins/%s/status", plugin.Name)
+
+		for _, instance := range plugin.Instances {
+			if len(instance.Args) > 0 {
+				joinedArgs := make([]string, 0, len(instance.Args))
+				for name, value := range instance.Args {
+					joinedArgs = append(joinedArgs, "--"+name)
+					joinedArgs = append(joinedArgs, value)
+					instance.ArgsList = joinedArgs
+				}
+			}
+		}
 	}
 
 	return nil

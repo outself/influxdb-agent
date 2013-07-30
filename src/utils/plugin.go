@@ -1,8 +1,9 @@
 package utils
 
 type Instance struct {
-	Name string
-	Args []string
+	Name     string
+	Args     map[string]string
+	ArgsList []string
 }
 
 type Plugin struct {

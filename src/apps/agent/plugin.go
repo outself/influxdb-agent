@@ -51,17 +51,23 @@ func monitorPlugins(ep *errplane.Errplane) {
 		log.Debug("Iterating through %d plugins", len(Plugins))
 
 		for _, plugin := range Plugins {
-			log.Debug("Running command %s", plugin.Cmd)
-			go runPlugin(ep, plugin)
+			for _, instance := range plugin.Instances {
+				log.Debug("Running command %s %s", plugin.Cmd, strings.Join(instance.ArgsList, " "))
+				go runPlugin(ep, instance, plugin)
+			}
 		}
 
 		time.Sleep(Sleep)
 	}
 }
 
-func runPlugin(ep *errplane.Errplane, plugin *Plugin) {
+func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *Plugin) {
 	cmdParts := strings.Fields(plugin.Cmd)
+	if len(instance.ArgsList) > 0 {
+		cmdParts = append(cmdParts, instance.ArgsList...)
+	}
 	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Error("Cannot run plugin %s. Error: %s", plugin.Cmd, err)
@@ -103,14 +109,14 @@ func runPlugin(ep *errplane.Errplane, plugin *Plugin) {
 		// other metrics are written to plugins.<plugin-name>.<metric-name> with the given value
 		// all metrics have the host name as a dimension
 
-		report(ep, fmt.Sprintf("plugins.%s.status", plugin.Name), 1.0, time.Now(), errplane.Dimensions{
+		report(ep, fmt.Sprintf("plugins.%s.%s.status", plugin.Name, instance.Name), 1.0, time.Now(), errplane.Dimensions{
 			"host":       Hostname,
 			"status":     output.state.String(),
 			"status_msg": output.msg,
 		}, nil)
 
 		for name, value := range output.metrics {
-			report(ep, fmt.Sprintf("plugins.%s.%s", plugin.Name, name), value, time.Now(), errplane.Dimensions{"host": Hostname}, nil)
+			report(ep, fmt.Sprintf("plugins.%s.%s.%s", plugin.Name, instance.Name, name), value, time.Now(), errplane.Dimensions{"host": Hostname}, nil)
 		}
 	}
 }

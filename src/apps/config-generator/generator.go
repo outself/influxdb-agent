@@ -56,9 +56,9 @@ top-n-processes: 10                           # For processes stats the agent wi
 # enabled-plugins:
 #   - name: redis       # the name of the plugin
 #     instances:        # optional, otherwise the agent will assume there is one instance running and will pass no args to the plugin
-#     - name: redis     # optional, default value is 'default'
+#     - name: default   # optional, default value is 'default'
 #       args:
-#       port: 6379    # call the plugin with --port 6379
+#         port: 6379    # call the plugin with --port 6379
 `
 
 	content := fmt.Sprintf(sample, *apiKey, *appKey, *env)
