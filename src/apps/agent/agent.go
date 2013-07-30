@@ -63,6 +63,14 @@ func initLog() error {
 	}
 
 	log.AddFilter("file", level, log.NewFileLogWriter(LogFile, false))
+
+	var err error
+	os.Stderr, err = os.OpenFile(LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	os.Stdout = os.Stderr
+
 	return nil
 }
 
