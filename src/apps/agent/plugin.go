@@ -25,7 +25,7 @@ func (p *PluginStateOutput) String() string {
 	case CRITICAL:
 		return "Critical"
 	case UNKNOWN:
-		return "unknown"
+		return "Unknown"
 	default:
 		panic(fmt.Errorf("WTF unknown state %d", *p))
 	}
@@ -94,7 +94,10 @@ func runPlugin(ep *errplane.Errplane, plugin *Plugin) {
 		output, err := parsePluginOutput(plugin, cmd.ProcessState, firstLine)
 		if err != nil {
 			log.Error("Cannot parse plugin %s output. Output: %s. Error: %s", plugin.Cmd, firstLine, err)
+			return
 		}
+
+		log.Debug("parsed output is %#v", output)
 
 		// status are printed to plugins.<plugin-nam>.status with a value of 1 and dimension status that is either ok, warning, critical or unknown
 		// other metrics are written to plugins.<plugin-name>.<metric-name> with the given value
@@ -116,15 +119,20 @@ func parsePluginOutput(plugin *Plugin, cmdState *os.ProcessState, firstLine stri
 	firstLine = strings.TrimSpace(firstLine)
 
 	statusAndMetrics := strings.Split(firstLine, "|")
-	if len(statusAndMetrics) != 2 {
+	if len(statusAndMetrics) != 2 && len(statusAndMetrics) != 1 {
 		return nil, fmt.Errorf("First line format doesn't match what the agent expects. See the docs for more details")
 	}
 
-	status, metrics := statusAndMetrics[0], statusAndMetrics[1]
+	exitStatus := cmdState.Sys().(syscall.WaitStatus).ExitStatus()
+	status := statusAndMetrics[0]
+
+	if len(statusAndMetrics) == 1 {
+		return &PluginOutput{PluginStateOutput(exitStatus), status, nil}, nil
+	}
+
+	metrics := statusAndMetrics[1]
 
 	// FIXME: linux specific
-	exitStatus := cmdState.Sys().(syscall.WaitStatus).ExitStatus()
-
 	metricsMap := make(map[string]float64)
 
 	for _, metric := range strings.Fields(metrics) {
