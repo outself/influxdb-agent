@@ -223,16 +223,23 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 		actualUsed := float64(mem.ActualUsed)
 		usedPercentage := actualUsed / float64(mem.Total) * 100
 
-		swapUsed := float64(swap.Used)
-		swapUsedPercentage := swapUsed / float64(swap.Total) * 100
+		if swap.Total > 0 {
+			// report swap usage only if the server has swap enabled
+
+			swapUsed := float64(swap.Used)
+			swapUsedPercentage := swapUsed / float64(swap.Total) * 100
+
+			if report(ep, "server.stats.swap.used", swapUsed, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.swap.used_percentage", swapUsedPercentage, timestamp, dimensions, ch) {
+				return
+			}
+		}
 
 		if report(ep, "server.stats.memory.free", float64(mem.Free), timestamp, dimensions, ch) ||
 			report(ep, "server.stats.memory.used", used, timestamp, dimensions, ch) ||
 			report(ep, "server.stats.memory.actual_used", actualUsed, timestamp, dimensions, ch) ||
 			report(ep, "server.stats.memory.used_percentage", usedPercentage, timestamp, dimensions, ch) ||
-			report(ep, "server.stats.swap.free", float64(swap.Free), timestamp, dimensions, ch) ||
-			report(ep, "server.stats.swap.used", swapUsed, timestamp, dimensions, ch) ||
-			report(ep, "server.stats.swap.used_percentage", swapUsedPercentage, timestamp, dimensions, ch) {
+			report(ep, "server.stats.swap.free", float64(swap.Free), timestamp, dimensions, ch) {
 			return
 		}
 
