@@ -47,6 +47,8 @@ To install the package run
 
 `sudo dpkg -i errplane-agent_0.1.0_amd64.deb`
 
-If this is the first time to install the package, edit `/etc/errplane-agent/config.yml`.
+Generate a config if this is the first time to install the agent
+
+`sudo -u errplane errplane-config-generator -api-key your-api-key -app-key your-app-key -environment production`
 
 An init.d script will be installed to start and stop the agent `/etc/init.d/errplane-agent`
