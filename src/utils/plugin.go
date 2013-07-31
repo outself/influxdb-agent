@@ -6,8 +6,14 @@ type Instance struct {
 	ArgsList []string
 }
 
+type PluginMetadata struct {
+	Output          string
+	HasDependencies bool `yaml:"needs-dependencies"`
+}
+
 type Plugin struct {
 	Cmd       string
 	Name      string
 	Instances []*Instance
+	Metadata  PluginMetadata
 }
