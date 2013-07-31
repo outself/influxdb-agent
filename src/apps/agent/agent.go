@@ -43,6 +43,7 @@ func main() {
 	go procStats(ep, ch)
 	go monitorProceses(ep, MonitoredProcesses, ch)
 	go monitorPlugins(ep)
+	go checkNewPlugins()
 	log.Info("Agent started successfully")
 	err = <-ch
 	log.Error("Data collection stopped unexpectedly. Error: %s", err)
