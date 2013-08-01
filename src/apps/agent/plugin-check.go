@@ -185,10 +185,14 @@ func getFileFromGithub(url, fullPath string) error {
 
 	//panic(string(content))
 
+	if parsedResponse["content"] == nil {
+		return fmt.Errorf("No data received for '%s'", url)
+	}
+
 	base64Content := parsedResponse["content"].(string)
 	data, err := base64.StdEncoding.DecodeString(base64Content)
 	if err != nil {
-		fmt.Errorf("Cannot base64 decode '%s'. Error: %s", base64Content, err)
+		return fmt.Errorf("Cannot base64 decode '%s'. Error: %s", base64Content, err)
 	}
 
 	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
