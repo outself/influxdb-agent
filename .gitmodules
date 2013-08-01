@@ -1,0 +1,3 @@
+[submodule "src/github.com/errplane/errplane-go-common"]
+	path = src/github.com/errplane/errplane-go-common
+	url = git@github.com:errplane/errplane-go-common.git

@@ -7,6 +7,8 @@ if [ "$UPDATE" = "on" ]; then
     build_args="-u"
 fi
 
+git submodule update --init
+
 go get $build_args github.com/errplane/errplane-go \
     github.com/errplane/gosigar \
     launchpad.net/goyaml \
