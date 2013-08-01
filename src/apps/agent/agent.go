@@ -44,6 +44,7 @@ func main() {
 	go monitorProceses(ep, AgentConfig.MonitoredProcesses, ch)
 	go monitorPlugins(ep)
 	go checkNewPlugins()
+	go startUdpListener(ep)
 	log.Info("Agent started successfully")
 	err = <-ch
 	log.Error("Data collection stopped unexpectedly. Error: %s", err)
