@@ -18,7 +18,7 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 	var previousProcessesSnapshot map[string]ProcStat
 	var previousProcessesSnapshotByPid map[int]ProcStat
 
-	monitoringSleep := math.Max(float64(Sleep/10), 1)
+	monitoringSleep := math.Max(float64(AgentConfig.Sleep/10), 1)
 
 	for {
 		pids.Get()
@@ -163,7 +163,7 @@ func reportProcessUp(ep *errplane.Errplane, process *Process) {
 
 func reportProcessEvent(ep *errplane.Errplane, name, status string) {
 	ep.Report("server.process.monitoring", 1.0, time.Now(), "", errplane.Dimensions{
-		"host":    Hostname,
+		"host":    AgentConfig.Hostname,
 		"process": name,
 		"status":  status,
 	})

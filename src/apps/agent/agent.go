@@ -14,10 +14,10 @@ import (
 )
 
 func main() {
-	config := flag.String("config", "/etc/errplane-agent/config.yml", "The agent config file")
+	configFile := flag.String("config", "/etc/errplane-agent/config.yml", "The agent config file")
 	flag.Parse()
 
-	err := InitConfig(*config)
+	err := InitConfig(*configFile)
 	if err != nil {
 		fmt.Printf("Error while reading configuration. Error: %s", err)
 		os.Exit(1)
@@ -29,11 +29,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	ep := errplane.New(AppKey, Environment, ApiKey)
-	ep.SetHttpHost(HttpHost)
-	ep.SetUdpAddr(UdpHost)
-	if Proxy != "" {
-		ep.SetProxy(Proxy)
+	ep := errplane.New(AgentConfig.AppKey, AgentConfig.Environment, AgentConfig.ApiKey)
+	ep.SetHttpHost(AgentConfig.HttpHost)
+	ep.SetUdpAddr(AgentConfig.UdpHost)
+	if AgentConfig.Proxy != "" {
+		ep.SetProxy(AgentConfig.Proxy)
 	}
 	ch := make(chan error)
 	go memStats(ep, ch)
@@ -41,7 +41,7 @@ func main() {
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
 	go procStats(ep, ch)
-	go monitorProceses(ep, MonitoredProcesses, ch)
+	go monitorProceses(ep, AgentConfig.MonitoredProcesses, ch)
 	go monitorPlugins(ep)
 	go checkNewPlugins()
 	log.Info("Agent started successfully")
@@ -54,7 +54,7 @@ func main() {
 
 func initLog() error {
 	level := log.DEBUG
-	switch LogLevel {
+	switch AgentConfig.LogLevel {
 	case "info":
 		level = log.INFO
 	case "warn":
@@ -63,10 +63,10 @@ func initLog() error {
 		level = log.ERROR
 	}
 
-	log.AddFilter("file", level, log.NewFileLogWriter(LogFile, false))
+	log.AddFilter("file", level, log.NewFileLogWriter(AgentConfig.LogFile, false))
 
 	var err error
-	os.Stderr, err = os.OpenFile(LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	os.Stderr, err = os.OpenFile(AgentConfig.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 			mergedStats := mergeStats(previousStats, procStats)
 
 			sort.Sort(ProcStatsSortableByCpu(mergedStats))
-			top10ByCpu := mergedStats[0:TopNProcesses]
+			top10ByCpu := mergedStats[0:AgentConfig.TopNProcesses]
 			now := time.Now()
 			for _, stat := range top10ByCpu {
 				if reportProcessCpuUsage(ep, &stat, now, ch) {
@@ -112,7 +112,7 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 				}
 			}
 			sort.Sort(ProcStatsSortableByMem(mergedStats))
-			top10ByMem := mergedStats[0:TopNProcesses]
+			top10ByMem := mergedStats[0:AgentConfig.TopNProcesses]
 			for _, stat := range top10ByMem {
 				if reportProcessMemUsage(ep, &stat, now, ch) {
 					return
@@ -121,7 +121,7 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 		}
 
 		previousStats = procStats
-		time.Sleep(Sleep)
+		time.Sleep(AgentConfig.Sleep)
 	}
 }
 
@@ -150,7 +150,7 @@ func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName
 	dimensions := errplane.Dimensions{
 		"pid":  strconv.Itoa(stat.pid),
 		"name": stat.name,
-		"host": Hostname,
+		"host": AgentConfig.Hostname,
 	}
 
 	if report(ep, metric, value, now, dimensions, ch) {
@@ -187,7 +187,7 @@ func ioStats(ep *errplane.Errplane, ch chan error) {
 				millisecondsElapsed := timestamp.Sub(prevTimeStamp).Nanoseconds() / int64(time.Millisecond)
 				utilization := float64(diskUsage.TotalIOTime-prevDiskUsage.TotalIOTime) / float64(millisecondsElapsed) * 100
 
-				dimensions := errplane.Dimensions{"host": Hostname, "device": diskUsage.Name}
+				dimensions := errplane.Dimensions{"host": AgentConfig.Hostname, "device": diskUsage.Name}
 
 				if report(ep, "server.stats.io.utilization", float64(utilization), timestamp, dimensions, ch) {
 					return
@@ -197,7 +197,7 @@ func ioStats(ep *errplane.Errplane, ch chan error) {
 
 		prevDiskUsages = diskUsages
 		prevTimeStamp = timestamp
-		time.Sleep(Sleep)
+		time.Sleep(AgentConfig.Sleep)
 	}
 }
 
@@ -217,7 +217,7 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 			return
 		}
 
-		dimensions := errplane.Dimensions{"host": Hostname}
+		dimensions := errplane.Dimensions{"host": AgentConfig.Hostname}
 		timestamp := time.Now()
 
 		used := float64(mem.Used)
@@ -244,7 +244,7 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 			return
 		}
 
-		time.Sleep(Sleep)
+		time.Sleep(AgentConfig.Sleep)
 	}
 }
 
@@ -262,7 +262,7 @@ func diskSpaceStats(ep *errplane.Errplane, ch chan error) {
 			usage := sigar.FileSystemUsage{}
 			usage.Get(dir_name)
 
-			dimensions := errplane.Dimensions{"host": Hostname, "device": fs.DevName}
+			dimensions := errplane.Dimensions{"host": AgentConfig.Hostname, "device": fs.DevName}
 
 			used := float64(usage.Total)
 			usedPercentage := usage.UsePercent()
@@ -272,7 +272,7 @@ func diskSpaceStats(ep *errplane.Errplane, ch chan error) {
 				return
 			}
 		}
-		time.Sleep(Sleep)
+		time.Sleep(AgentConfig.Sleep)
 	}
 }
 
@@ -291,7 +291,7 @@ func cpuStats(ep *errplane.Errplane, ch chan error) {
 		}
 
 		if !skipFirst {
-			dimensions := errplane.Dimensions{"host": Hostname}
+			dimensions := errplane.Dimensions{"host": AgentConfig.Hostname}
 
 			total := float64(cpu.Total() - prevCpu.Total())
 
@@ -315,6 +315,6 @@ func cpuStats(ep *errplane.Errplane, ch chan error) {
 		}
 		skipFirst = false
 		prevCpu = cpu
-		time.Sleep(Sleep)
+		time.Sleep(AgentConfig.Sleep)
 	}
 }

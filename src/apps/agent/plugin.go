@@ -48,16 +48,16 @@ type PluginOutput struct {
 
 func monitorPlugins(ep *errplane.Errplane) {
 	for {
-		log.Debug("Iterating through %d plugins", len(Plugins))
+		log.Debug("Iterating through %d plugins", len(AgentConfig.Plugins))
 
-		for _, plugin := range Plugins {
+		for _, plugin := range AgentConfig.Plugins {
 			for _, instance := range plugin.Instances {
 				log.Debug("Running command %s %s", plugin.Cmd, strings.Join(instance.ArgsList, " "))
 				go runPlugin(ep, instance, plugin)
 			}
 		}
 
-		time.Sleep(Sleep)
+		time.Sleep(AgentConfig.Sleep)
 	}
 }
 
@@ -110,13 +110,13 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *Plugin) {
 		// all metrics have the host name as a dimension
 
 		report(ep, fmt.Sprintf("plugins.%s.%s.status", plugin.Name, instance.Name), 1.0, time.Now(), errplane.Dimensions{
-			"host":       Hostname,
+			"host":       AgentConfig.Hostname,
 			"status":     output.state.String(),
 			"status_msg": output.msg,
 		}, nil)
 
 		for name, value := range output.metrics {
-			report(ep, fmt.Sprintf("plugins.%s.%s.%s", plugin.Name, instance.Name, name), value, time.Now(), errplane.Dimensions{"host": Hostname}, nil)
+			report(ep, fmt.Sprintf("plugins.%s.%s.%s", plugin.Name, instance.Name, name), value, time.Now(), errplane.Dimensions{"host": AgentConfig.Hostname}, nil)
 		}
 	}
 }
@@ -165,11 +165,11 @@ func killPlugin(plugin *Plugin, cmd *exec.Cmd, ch chan error) {
 			log.Error("plugin %s didn't die gracefully. Killing it.", plugin.Cmd)
 			cmd.Process.Kill()
 		}
-	case <-time.After(Sleep):
+	case <-time.After(AgentConfig.Sleep):
 		err := cmd.Process.Kill()
 		if err != nil {
 			log.Error("Cannot kill plugin %s. Error: %s", plugin.Cmd, err)
 		}
-		log.Error("Plugin %s killed because it took more than %s to execute", plugin.Cmd, Sleep)
+		log.Error("Plugin %s killed because it took more than %s to execute", plugin.Cmd, AgentConfig.Sleep)
 	}
 }

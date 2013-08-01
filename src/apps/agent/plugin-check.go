@@ -27,7 +27,7 @@ func checkNewPlugins() {
 		plugins := getAvailablePlugins()
 
 		// remove the plugins that are already running
-		for _, plugin := range Plugins {
+		for _, plugin := range AgentConfig.Plugins {
 			delete(plugins, plugin.Name)
 		}
 

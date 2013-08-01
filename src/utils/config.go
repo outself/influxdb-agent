@@ -9,76 +9,61 @@ import (
 	"time"
 )
 
-var (
-	Hostname           string
-	UdpHost            string
-	HttpHost           string
-	Environment        string
-	AppKey             string
-	ApiKey             string
-	Sleep              time.Duration
-	Proxy              string
-	LogFile            string
-	LogLevel           string
-	TopNProcesses      int
-	MonitoredProcesses []*Process
-	Plugins            []*Plugin
-)
-
-type Global struct {
+type Config struct {
+	Hostname           string `yaml:"-"`
 	UdpHost            string `yaml:"udp-host"`
 	HttpHost           string `yaml:"http-host"`
 	ApiKey             string `yaml:"api-key"`
 	AppKey             string `yaml:"app-key"`
 	Environment        string
-	Sleep              string
+	Sleep              time.Duration `yaml:"-"`
+	RawSleep           string        `yaml:"sleep"`
 	Proxy              string
 	LogFile            string     `yaml:"log-file"`
 	LogLevel           string     `yaml:"log-level"`
 	TopNProcesses      int        `yaml:"top-n-processes"`
 	MonitoredProcesses []*Process `yaml:"processes,flow"`
 	Plugins            []*Plugin  `yaml:"enabled-plugins,flow"`
+
+	// aggregator configuration
+	Percentiles      []float64     `yaml:"percentiles,flow"`
+	RawFlushInterval string        `yaml:"flush-interval"`
+	FlushInterval    time.Duration `yaml:"-"`
+	UdpAddr          string        `yaml:"udp-addr"`
 }
 
+var AgentConfig Config
+
 func InitConfig(path string) error {
-	var err error
-	Hostname, err = os.Hostname()
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	err = goyaml.Unmarshal(content, &AgentConfig)
+	if err != nil {
+		return err
+	}
+
+	AgentConfig.Hostname, err = os.Hostname()
 	if err != nil {
 		fmt.Printf("Cannot determine hostname. Error: %s\n", err)
 		os.Exit(1)
 	}
 
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	m := Global{}
-	err = goyaml.Unmarshal(content, &m)
-	if err != nil {
-		return err
-	}
-
 	// setPluginDefaults()
 	// setProcessesDefaults()
 
-	Sleep, err = time.ParseDuration(m.Sleep)
+	AgentConfig.Sleep, err = time.ParseDuration(AgentConfig.RawSleep)
 	if err != nil {
 		return err
 	}
 
-	UdpHost = m.UdpHost
-	HttpHost = m.HttpHost
-	Environment = m.Environment
-	AppKey = m.AppKey
-	ApiKey = m.ApiKey
-	Proxy = m.Proxy
-	LogFile = m.LogFile
-	LogLevel = m.LogLevel
-	TopNProcesses = m.TopNProcesses
-	MonitoredProcesses = m.MonitoredProcesses
-	Plugins = m.Plugins
+	AgentConfig.FlushInterval, err = time.ParseDuration(AgentConfig.RawFlushInterval)
+	if err != nil {
+		return err
+	}
 
-	for _, process := range MonitoredProcesses {
+	for _, process := range AgentConfig.MonitoredProcesses {
 		process.CompiledRegex, err = regexp.Compile(process.Regex)
 		if err != nil {
 			return err
@@ -93,7 +78,7 @@ func InitConfig(path string) error {
 		}
 	}
 
-	for _, plugin := range Plugins {
+	for _, plugin := range AgentConfig.Plugins {
 		if plugin.Name == "" {
 			return fmt.Errorf("Plugin name cannot be empty")
 		}
