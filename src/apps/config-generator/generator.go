@@ -46,7 +46,7 @@ percentiles:						# the percentiles that will be calculated and sent to Errplane
   - 95.0
   - 99.0
 flush-interval: 10s			# the rollup interval
-udp-port: 6380					# the udp port on which the aggregator will listen
+udp-port: :8127					# the udp port on which the aggregator will listen
 
 sleep: 10s                                    # frequency of sampling (accepted suffix, s for seconds, m for minutes and h for hours)
 proxy:                                        # proxy to use when making http requests (e.g. https://201.20.177.185:8080/)
