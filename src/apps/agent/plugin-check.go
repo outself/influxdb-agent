@@ -162,8 +162,7 @@ func getFileFromGithub(url, fullPath string) error {
 	// create the plugins directory if it doesn't exist
 	dir := path.Dir(fullPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		log.Error("Cannot create the plugin directory. Error: %s", err)
-		return nil
+		return fmt.Errorf("Cannot create the plugin directory. Error: %s", err)
 	}
 
 	// download the should_monitor script
@@ -194,7 +193,7 @@ func getFileFromGithub(url, fullPath string) error {
 
 	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
 	if err != nil {
-		fmt.Errorf("Cannot open %s. Error: %s", fullPath, err)
+		return fmt.Errorf("Cannot open %s. Error: %s", fullPath, err)
 	}
 
 	defer file.Close()
