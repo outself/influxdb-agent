@@ -21,9 +21,9 @@ type AggregatorConfig struct {
 //
 // FIXME: we should unify the two structs so we don't have to do this stupid conversion
 func convertToInternalWriteOperation(operation *common.WriteOperation) *errplane.WriteOperation {
-	writes := make([]*errplane.JsonPoints, len(operation.Writes))
+	writes := make([]*errplane.JsonPoints, 0, len(operation.Writes))
 	for _, write := range operation.Writes {
-		points := make([]*errplane.JsonPoint, len(write.Points))
+		points := make([]*errplane.JsonPoint, 0, len(write.Points))
 		for _, point := range write.Points {
 			points = append(points, &errplane.JsonPoint{
 				Value:      point.Value,
@@ -49,7 +49,9 @@ func convertToInternalWriteOperation(operation *common.WriteOperation) *errplane
 
 func handler(ep *errplane.Errplane) aggregator.Handler {
 	return func(operation *common.WriteOperation) {
-		ep.SendHttp(convertToInternalWriteOperation(operation))
+		if err := ep.SendHttp(convertToInternalWriteOperation(operation)); err != nil {
+			log.Error("Cannot send data to the Errplane. Error: %s", err)
+		}
 	}
 }
 
