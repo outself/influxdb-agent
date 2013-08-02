@@ -54,7 +54,7 @@ func (self *AgentSuite) TestNagiosOutputParsing(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(output.state, Equals, OK)
 	c.Assert(output.msg, Equals, "OK: REDIS 2.6.10 on localhost:6379 has 1 databases (db0) with 3 keys, up 3 days 22 hours")
-	c.Assert(output.metrics, HasLen, 59)
+	c.Assert(len(output.metrics), Equals, 47)
 	c.Assert(output.metrics["uptime_in_seconds"], Equals, 340305.0)
 	c.Assert(output.metrics["total_connections_received"], Equals, 1728.0)
 	c.Assert(output.metrics["lru_clock"], Equals, 1231438.0)
