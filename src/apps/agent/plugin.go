@@ -26,7 +26,7 @@ type ProcessStateWrapper struct {
 }
 
 func (self *ProcessStateWrapper) ExitStatus() int {
-	return self.status.Sys().(*syscall.WaitStatus).ExitStatus()
+	return self.status.Sys().(syscall.WaitStatus).ExitStatus()
 }
 
 func (p *PluginStateOutput) String() string {
