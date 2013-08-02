@@ -58,11 +58,11 @@ func pluginShouldMonitorUrl(name string) string {
 }
 
 func pluginMetadataPath(name string) string {
-	return fmt.Sprintf("%s/%s/meta.yml", PLUGINS_DIR, name)
+	return fmt.Sprintf("%s/%s/info.yml", PLUGINS_DIR, name)
 }
 
 func pluginMetadataUrl(name string) string {
-	return fmt.Sprintf("%s/%s/meta.yml", PLUGINS_REPO, name)
+	return fmt.Sprintf("%s/%s/info.yml", PLUGINS_REPO, name)
 }
 
 func pluginStatusPath(name string) string {
@@ -145,7 +145,7 @@ func installPlugin(name string) error {
 	}
 	for _, file := range files {
 		// ignore these two files, we have them already
-		if file.Name == "should_monitor" || file.Name == "meta.yml" {
+		if file.Name == "should_monitor" || file.Name == "info.yml" {
 			continue
 		}
 
