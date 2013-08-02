@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	log "code.google.com/p/log4go"
 	"fmt"
 	"github.com/errplane/errplane-go"
@@ -15,6 +16,18 @@ import (
 )
 
 type PluginStateOutput int
+
+type ProcessState interface {
+	ExitStatus() int
+}
+
+type ProcessStateWrapper struct {
+	status *os.ProcessState
+}
+
+func (self *ProcessStateWrapper) ExitStatus() int {
+	return self.status.Sys().(*syscall.WaitStatus).ExitStatus()
+}
 
 func (p *PluginStateOutput) String() string {
 	switch *p {
@@ -97,7 +110,7 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *Plugin) {
 	if len(lines) > 0 {
 		log.Debug("output of plugin %s is %s", plugin.Cmd, lines[0])
 		firstLine := lines[0]
-		output, err := parsePluginOutput(plugin, cmd.ProcessState, firstLine)
+		output, err := parsePluginOutput(plugin, &ProcessStateWrapper{cmd.ProcessState}, firstLine)
 		if err != nil {
 			log.Error("Cannot parse plugin %s output. Output: %s. Error: %s", plugin.Cmd, firstLine, err)
 			return
@@ -121,37 +134,132 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *Plugin) {
 	}
 }
 
-func parsePluginOutput(plugin *Plugin, cmdState *os.ProcessState, firstLine string) (*PluginOutput, error) {
+func parsePluginOutput(plugin *Plugin, cmdState ProcessState, firstLine string) (*PluginOutput, error) {
+	outputType := plugin.Metadata.Output
+	switch outputType {
+	case "nagios":
+		return parseNagiosOutput(cmdState, firstLine)
+	case "errplane":
+		return parseErrplaneOutput(cmdState, firstLine)
+	default:
+		return nil, fmt.Errorf("Unknown plugin output type '%s', supported types are 'errplane' and 'nagios'", outputType)
+	}
+}
+
+func parseErrplaneOutput(cmdState ProcessState, firstLine string) (*PluginOutput, error) {
+	return nil, nil
+}
+
+func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, error) {
 	firstLine = strings.TrimSpace(firstLine)
 
 	statusAndMetrics := strings.Split(firstLine, "|")
-	if len(statusAndMetrics) != 2 && len(statusAndMetrics) != 1 {
+	switch len(statusAndMetrics) {
+	case 1, 2: // that's fine, anything else is an error
+	default:
 		return nil, fmt.Errorf("First line format doesn't match what the agent expects. See the docs for more details")
 	}
 
-	exitStatus := cmdState.Sys().(syscall.WaitStatus).ExitStatus()
-	status := statusAndMetrics[0]
+	exitStatus := cmdState.ExitStatus()
+	status := strings.TrimSpace(statusAndMetrics[0])
 
 	if len(statusAndMetrics) == 1 {
 		return &PluginOutput{PluginStateOutput(exitStatus), status, nil}, nil
 	}
 
-	metrics := statusAndMetrics[1]
+	metricsLine := strings.TrimSpace(statusAndMetrics[1])
 
-	// FIXME: linux specific
+	type ParserState int
+	const (
+		IN_QUOTED_FIELD = iota
+		IN_VALUE
+		START
+	)
+
+	metricName := ""
+	value := ""
+	token := bytes.NewBufferString("")
+	state := START
+	metrics := make(map[string]string)
+
+	for i := 0; i < len(metricsLine); i++ {
+		switch metricsLine[i] {
+		case '\'':
+			switch state {
+			case IN_QUOTED_FIELD:
+				if i+1 < len(metricsLine) && metricsLine[i+1] == '\'' {
+					token.WriteByte('\'')
+					i++
+				}
+			case IN_VALUE:
+				// starting a new metric
+				state = IN_QUOTED_FIELD
+				value = value + token.String()
+				token = bytes.NewBufferString("")
+				metrics[metricName] = value
+				metricName, value = "", ""
+			case START:
+				state = IN_QUOTED_FIELD
+			}
+		case '=':
+			switch state {
+			case IN_VALUE:
+				metrics[metricName] = value
+				fallthrough
+			case START:
+				metricName = token.String()
+				token = bytes.NewBufferString("")
+				value = ""
+				state = IN_VALUE
+			case IN_QUOTED_FIELD:
+				state = IN_VALUE
+				metricName = token.String()
+				token = bytes.NewBufferString("")
+			}
+		case ' ':
+			switch state {
+			case IN_VALUE:
+				value = value + " " + token.String()
+			case IN_QUOTED_FIELD:
+				metricName = metricName + " " + token.String()
+			}
+			token = bytes.NewBufferString("")
+		default:
+			token.WriteByte(metricsLine[i])
+		}
+	}
+
+	metrics[metricName] = value + token.String()
+
 	metricsMap := make(map[string]float64)
 
-	for _, metric := range strings.Fields(metrics) {
-		nameAndValue := strings.Split(metric, "=")
-		if len(nameAndValue) != 2 {
-			return nil, fmt.Errorf("First line format doesn't match what the agent expects. See the docs for more details")
+	for key, value := range metrics {
+		value = strings.Split(strings.TrimSpace(value), ";")[0]
+
+		uom := value[len(value)-1]
+		switch uom {
+		case 's':
+			switch value[len(value)-2] {
+			case 'u', 'm':
+				value = value[0 : len(value)-2]
+			default:
+				value = value[0 : len(value)-1]
+			}
+		case 'B':
+			switch value[len(value)-2] {
+			case 'K', 'M', 'G':
+				value = value[0 : len(value)-2]
+			default:
+				value = value[0 : len(value)-1]
+			}
+		case '%', 'c':
+			value = value[0 : len(value)-1]
 		}
 
-		name, value := nameAndValue[0], nameAndValue[1]
 		var err error
-		metricsMap[name], err = strconv.ParseFloat(value, 64)
+		metricsMap[key], err = strconv.ParseFloat(value, 64)
 		if err != nil {
-			return nil, fmt.Errorf("Invalid numeric value in plugin output. Error: %s", err)
+			log.Error("Cannot parse the value of metric %s into a float. Error: %s", key, err)
 		}
 	}
 
