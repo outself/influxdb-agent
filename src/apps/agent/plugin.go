@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	log "code.google.com/p/log4go"
+	"encoding/json"
 	"fmt"
 	"github.com/errplane/errplane-go"
 	"io/ioutil"
@@ -54,6 +55,7 @@ const (
 type PluginOutput struct {
 	state   PluginStateOutput
 	msg     string
+	points  []*errplane.JsonPoints
 	metrics map[string]float64
 }
 
@@ -128,8 +130,18 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *Plugin) {
 			"status_msg": output.msg,
 		}, nil)
 
-		for name, value := range output.metrics {
-			report(ep, fmt.Sprintf("plugins.%s.%s.%s", plugin.Name, instance.Name, name), value, time.Now(), errplane.Dimensions{"host": AgentConfig.Hostname}, nil)
+		if output.points != nil {
+			// add the plugins.<plugin-name>.<instance-name> to the metric names
+			for _, write := range output.points {
+				write.Name = fmt.Sprintf("plugins.%s.%s.%s", plugin.Name, instance.Name, write.Name)
+			}
+			ep.SendHttp(&errplane.WriteOperation{Writes: output.points})
+		}
+
+		if output.metrics != nil {
+			for name, value := range output.metrics {
+				report(ep, fmt.Sprintf("plugins.%s.%s.%s", plugin.Name, instance.Name, name), value, time.Now(), errplane.Dimensions{"host": AgentConfig.Hostname}, nil)
+			}
 		}
 	}
 }
@@ -147,7 +159,19 @@ func parsePluginOutput(plugin *Plugin, cmdState ProcessState, firstLine string) 
 }
 
 func parseErrplaneOutput(cmdState ProcessState, firstLine string) (*PluginOutput, error) {
-	return nil, nil
+	exitStatus := cmdState.ExitStatus()
+	firstLine = strings.TrimSpace(firstLine)
+	statusAndMetrics := strings.Split(firstLine, "|")
+	status := strings.TrimSpace(statusAndMetrics[0])
+	writes := make([]*errplane.JsonPoints, 0)
+	metric := strings.TrimSpace(statusAndMetrics[1])
+
+	err := json.Unmarshal([]byte(metric), &writes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PluginOutput{PluginStateOutput(exitStatus), status, writes, nil}, nil
 }
 
 func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, error) {
@@ -164,7 +188,7 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 	status := strings.TrimSpace(statusAndMetrics[0])
 
 	if len(statusAndMetrics) == 1 {
-		return &PluginOutput{PluginStateOutput(exitStatus), status, nil}, nil
+		return &PluginOutput{PluginStateOutput(exitStatus), status, nil, nil}, nil
 	}
 
 	metricsLine := strings.TrimSpace(statusAndMetrics[1])
@@ -270,7 +294,7 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 		}
 	}
 
-	return &PluginOutput{PluginStateOutput(exitStatus), status, metricsMap}, nil
+	return &PluginOutput{PluginStateOutput(exitStatus), status, nil, metricsMap}, nil
 }
 
 func killPlugin(plugin *Plugin, cmd *exec.Cmd, ch chan error) {
