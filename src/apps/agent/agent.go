@@ -148,7 +148,7 @@ func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName
 		metric = fmt.Sprintf("server.stats.procs.cpu%s", suffix)
 		value = stat.cpuUsage
 	case "mem":
-		metric = fmt.Sprintf("server.stats.procs.mem%", suffix)
+		metric = fmt.Sprintf("server.stats.procs.mem%s", suffix)
 		value = stat.memUsage
 	default:
 		log.Error("unknown metric name %s", metricName)
