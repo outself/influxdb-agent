@@ -265,7 +265,8 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 		var err error
 		metricsMap[key], err = strconv.ParseFloat(value, 64)
 		if err != nil {
-			log.Error("Cannot parse the value of metric %s into a float. Error: %s", key, err)
+			delete(metricsMap, key)
+			log.Info("Cannot parse the value of metric %s into a float. Error: %s", key, err)
 		}
 	}
 
