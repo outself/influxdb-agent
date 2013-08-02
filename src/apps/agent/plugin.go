@@ -187,23 +187,28 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 		case '\'':
 			switch state {
 			case IN_QUOTED_FIELD:
+				// if we're in a quoted field and we got double single quotes, treat them as a single quote
+				// otherwise a '=' should follow and we'll change state to IN_VALUE
 				if i+1 < len(metricsLine) && metricsLine[i+1] == '\'' {
 					token.WriteByte('\'')
 					i++
 				}
 			case IN_VALUE:
-				// starting a new metric
+				// We're probably starting a new metric name
 				state = IN_QUOTED_FIELD
 				value = value + token.String()
 				token = bytes.NewBufferString("")
 				metrics[metricName] = value
 				metricName, value = "", ""
 			case START:
+				// quote at the beginning of the metrics
 				state = IN_QUOTED_FIELD
 			}
 		case '=':
 			switch state {
 			case IN_VALUE:
+				// we're parsing a value, and suddently started parsing a new metric, e.g. `name=baz foo=bar`
+				//																																						e're here ^ but we're parsing the value of the `name`
 				metrics[metricName] = value
 				fallthrough
 			case START:
@@ -212,6 +217,7 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 				value = ""
 				state = IN_VALUE
 			case IN_QUOTED_FIELD:
+				// we finished parsing the metric name and started parsing the value
 				state = IN_VALUE
 				metricName = token.String()
 				token = bytes.NewBufferString("")
