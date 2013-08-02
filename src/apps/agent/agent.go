@@ -105,44 +105,50 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 			mergedStats := mergeStats(previousStats, procStats)
 
 			sort.Sort(ProcStatsSortableByCpu(mergedStats))
-			top10ByCpu := mergedStats[0:AgentConfig.TopNProcesses]
+			topNByCpu := mergedStats[0:AgentConfig.TopNProcesses]
 			now := time.Now()
-			for _, stat := range top10ByCpu {
-				if reportProcessCpuUsage(ep, &stat, now, ch) {
+			for _, stat := range topNByCpu {
+				if reportProcessCpuUsage(ep, &stat, now, true, ch) {
 					return
 				}
 			}
 			sort.Sort(ProcStatsSortableByMem(mergedStats))
-			top10ByMem := mergedStats[0:AgentConfig.TopNProcesses]
-			for _, stat := range top10ByMem {
-				if reportProcessMemUsage(ep, &stat, now, ch) {
+			topNByMem := mergedStats[0:AgentConfig.TopNProcesses]
+			for _, stat := range topNByMem {
+				if reportProcessMemUsage(ep, &stat, now, true, ch) {
 					return
 				}
 			}
 		}
 
 		previousStats = procStats
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(AgentConfig.TopNSleep)
 	}
 }
 
-func reportProcessCpuUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, ch chan error) bool {
-	return reportProcessMetric(ep, stat, "cpu", now, ch)
+func reportProcessCpuUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
+	return reportProcessMetric(ep, stat, "cpu", now, top, ch)
 }
 
-func reportProcessMemUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, ch chan error) bool {
-	return reportProcessMetric(ep, stat, "mem", now, ch)
+func reportProcessMemUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
+	return reportProcessMetric(ep, stat, "mem", now, top, ch)
 }
 
-func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName string, now time.Time, ch chan error) bool {
+func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName string, now time.Time, top bool, ch chan error) bool {
 	var value float64
 	var metric string
+
+	suffix := ""
+	if top {
+		suffix = ".top"
+	}
+
 	switch metricName {
 	case "cpu":
-		metric = "server.stats.procs.cpu"
+		metric = fmt.Sprintf("server.stats.procs.cpu%s", suffix)
 		value = stat.cpuUsage
 	case "mem":
-		metric = "server.stats.procs.mem"
+		metric = fmt.Sprintf("server.stats.procs.mem%", suffix)
 		value = stat.memUsage
 	default:
 		log.Error("unknown metric name %s", metricName)

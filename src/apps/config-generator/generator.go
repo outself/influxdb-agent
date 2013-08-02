@@ -53,6 +53,7 @@ proxy:                                        # proxy to use when making http re
 log-file: /data/errplane-agent/shared/log.txt # the log file of the agent
 log-level: debug                              # debug, info, warn, error
 top-n-processes: 10                           # For processes stats the agent will report the top n processes (by memory and cpu usage)
+top-n-sleep:     1m                           # Sampling frequency of the top n processes
 
 # processes:
 #   - name:   mysqld

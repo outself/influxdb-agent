@@ -18,6 +18,8 @@ type Config struct {
 	Environment        string
 	Sleep              time.Duration `yaml:"-"`
 	RawSleep           string        `yaml:"sleep"`
+	TopNSleep          time.Duration `yaml:"-"`
+	RawTopNSleep       string        `yaml:"top-n-sleep"`
 	Proxy              string
 	LogFile            string     `yaml:"log-file"`
 	LogLevel           string     `yaml:"log-level"`
@@ -59,6 +61,11 @@ func InitConfig(path string) error {
 	}
 
 	AgentConfig.FlushInterval, err = time.ParseDuration(AgentConfig.RawFlushInterval)
+	if err != nil {
+		return err
+	}
+
+	AgentConfig.TopNSleep, err = time.ParseDuration(AgentConfig.RawTopNSleep)
 	if err != nil {
 		return err
 	}
