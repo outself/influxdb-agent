@@ -89,6 +89,15 @@ func InitConfig(path string) error {
 		}
 
 		plugin.Cmd = fmt.Sprintf("/data/errplane-agent/plugins/%s/status", plugin.Name)
+		infoFile, err := ioutil.ReadFile(fmt.Sprintf("/data/errplane-agent/plugins/%s/info.yml", plugin.Name))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "info.yml wasn't found for %s plugin", plugin.Name)
+		}
+
+		err = goyaml.Unmarshal(infoFile, &plugin.Metadata)
+		if err != nil {
+			return err
+		}
 
 		for _, instance := range plugin.Instances {
 			if len(instance.Args) > 0 {
