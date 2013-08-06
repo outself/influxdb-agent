@@ -65,6 +65,11 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 						reportProcessDown(ep, monitoredProcess)
 					}
 				}
+
+				if status == DOWN {
+					startProcess(monitoredProcess)
+				}
+
 				monitoredProcess.LastStatus = status
 				// process is still up, or is still down. Do nothing in both cases.
 			}
@@ -151,9 +156,12 @@ func getProcessStatus(process *Process, currentProcessesSnapshot map[string]Proc
 }
 
 func reportProcessDown(ep *errplane.Errplane, process *Process) {
-	log.Info("Process %s went down, restarting and reporting event", process.Name)
+	log.Info("Process %s went down", process.Name)
 	reportProcessEvent(ep, process.Name, "down")
+}
 
+func startProcess(process *Process) {
+	log.Info("Trying to start process %s", process.Name)
 	// The following requires an entry like the following in the sudoers file
 	// errplane ALL=(root) NOPASSWD: /usr/sbin/service mysql start, (root) NOPASSWD: /usr/sbin/service mysql stop
 	// where root is the user that is used to start and stop the service
