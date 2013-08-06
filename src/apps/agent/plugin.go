@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -52,6 +53,11 @@ const (
 	UNKNOWN
 )
 
+var (
+	DEFAULT_INSTANCE  = &Instance{"default", nil, nil}
+	DEFAULT_INSTANCES = []*Instance{&Instance{"default", nil, nil}}
+)
+
 type PluginOutput struct {
 	state   PluginStateOutput
 	msg     string
@@ -59,47 +65,91 @@ type PluginOutput struct {
 	metrics map[string]float64
 }
 
+type AgentConfiguration struct {
+	Plugins map[string][]*Instance `json:"plugins"`
+}
+
 // handles running plugins
-
 func monitorPlugins(ep *errplane.Errplane) {
-	for {
-		log.Debug("Iterating through %d plugins", len(AgentConfig.Plugins))
+	var previousConfig *AgentConfiguration
+	var version []byte
 
-		for _, plugin := range AgentConfig.Plugins {
-			for _, instance := range plugin.Instances {
-				log.Debug("Running command %s %s", plugin.Cmd, strings.Join(instance.ArgsList, " "))
+	for {
+		// get the list of plugins that should be turned from the config service
+		config := &AgentConfiguration{}
+		database := AgentConfig.AppKey + AgentConfig.Environment
+		url := fmt.Sprintf("http://%s/databases/%s/agent/%s/configuration?api_key=%s", AgentConfig.ConfigService, database,
+			AgentConfig.Hostname, AgentConfig.ApiKey)
+		body, err := getBody(url)
+		if err != nil {
+			log.Error("Cannot get configuration from '%s'. Error: %s", url, err)
+			if previousConfig == nil {
+				goto sleep
+			}
+			config = previousConfig
+		}
+		previousConfig = config
+		log.Debug("Received configuration: %s", string(body))
+		err = json.Unmarshal(body, config)
+		if err != nil {
+			log.Error("Cannot unmarshal '%s'. Error: %s", string(body), err)
+			if previousConfig == nil {
+				goto sleep
+			}
+			config = previousConfig
+		}
+		log.Debug("Parsed response: %v", config)
+		log.Debug("Iterating through %d plugins", len(config.Plugins))
+
+		version, err = ioutil.ReadFile(path.Join(PLUGINS_DIR, "version"))
+		if err != nil {
+			log.Error("Cannot read current plugins version")
+			goto sleep
+		}
+
+		for name, instances := range config.Plugins {
+			plugin, err := parsePluginInfo(path.Join(PLUGINS_DIR, string(version), name))
+			if err != nil {
+				log.Error("Cannot get scripts and info for plugin '%s'. Error: %s", name, err)
+				continue
+			}
+
+			if len(instances) == 0 {
+				instances = DEFAULT_INSTANCES
+			}
+
+			for _, instance := range instances {
+				log.Debug("Running command %s %s", path.Join(plugin.Path, "status"), strings.Join(instance.ArgsList, " "))
 				go runPlugin(ep, instance, plugin)
 			}
 		}
 
+	sleep:
 		time.Sleep(AgentConfig.Sleep)
 	}
 }
 
-func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *Plugin) {
-	cmdParts := strings.Fields(plugin.Cmd)
-	if len(instance.ArgsList) > 0 {
-		cmdParts = append(cmdParts, instance.ArgsList...)
-	}
-	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata) {
+	cmdPath := path.Join(plugin.Path, "status")
+	cmd := exec.Command(cmdPath, instance.ArgsList...)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Error("Cannot run plugin %s. Error: %s", plugin.Cmd, err)
+		log.Error("Cannot run plugin %s. Error: %s", cmd, err)
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Error("Cannot run plugin %s. Error: %s", plugin.Cmd, err)
+		log.Error("Cannot run plugin %s. Error: %s", cmdPath, err)
 		return
 	}
 
 	ch := make(chan error)
-	go killPlugin(plugin, cmd, ch)
+	go killPlugin(cmdPath, cmd, ch)
 
 	output, err := ioutil.ReadAll(stdout)
 	if err != nil {
-		log.Error("Error while reading output from plugin %s. Error: %s", plugin.Cmd, err)
+		log.Error("Error while reading output from plugin %s. Error: %s", cmdPath, err)
 		ch <- err
 		return
 	}
@@ -110,11 +160,11 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *Plugin) {
 	ch <- err
 
 	if len(lines) > 0 {
-		log.Debug("output of plugin %s is %s", plugin.Cmd, lines[0])
+		log.Debug("output of plugin %s is %s", cmdPath, lines[0])
 		firstLine := lines[0]
 		output, err := parsePluginOutput(plugin, &ProcessStateWrapper{cmd.ProcessState}, firstLine)
 		if err != nil {
-			log.Error("Cannot parse plugin %s output. Output: %s. Error: %s", plugin.Cmd, firstLine, err)
+			log.Error("Cannot parse plugin %s output. Output: %s. Error: %s", cmdPath, firstLine, err)
 			return
 		}
 
@@ -146,8 +196,8 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *Plugin) {
 	}
 }
 
-func parsePluginOutput(plugin *Plugin, cmdState ProcessState, firstLine string) (*PluginOutput, error) {
-	outputType := plugin.Metadata.Output
+func parsePluginOutput(plugin *PluginMetadata, cmdState ProcessState, firstLine string) (*PluginOutput, error) {
+	outputType := plugin.Output
 	switch outputType {
 	case "nagios":
 		return parseNagiosOutput(cmdState, firstLine)
@@ -297,18 +347,18 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 	return &PluginOutput{PluginStateOutput(exitStatus), status, nil, metricsMap}, nil
 }
 
-func killPlugin(plugin *Plugin, cmd *exec.Cmd, ch chan error) {
+func killPlugin(cmdPath string, cmd *exec.Cmd, ch chan error) {
 	select {
 	case err := <-ch:
 		if exitErr, ok := err.(*exec.ExitError); ok && !exitErr.Exited() {
-			log.Error("plugin %s didn't die gracefully. Killing it.", plugin.Cmd)
+			log.Error("plugin %s didn't die gracefully. Killing it.", cmdPath)
 			cmd.Process.Kill()
 		}
 	case <-time.After(AgentConfig.Sleep):
 		err := cmd.Process.Kill()
 		if err != nil {
-			log.Error("Cannot kill plugin %s. Error: %s", plugin.Cmd, err)
+			log.Error("Cannot kill plugin %s. Error: %s", cmdPath, err)
 		}
-		log.Error("Plugin %s killed because it took more than %s to execute", plugin.Cmd, AgentConfig.Sleep)
+		log.Error("Plugin %s killed because it took more than %s to execute", cmdPath, AgentConfig.Sleep)
 	}
 }

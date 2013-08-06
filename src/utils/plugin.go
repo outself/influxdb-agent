@@ -7,9 +7,11 @@ type Instance struct {
 }
 
 type PluginMetadata struct {
+	Name            string
 	Verion          string
 	Output          string
-	HasDependencies bool `yaml:"needs-dependencies"`
+	HasDependencies bool   `yaml:"needs-dependencies"`
+	Path            string `yaml:"-"`
 }
 
 type Plugin struct {

@@ -23,6 +23,7 @@ type Config struct {
 	Proxy              string
 	LogFile            string     `yaml:"log-file"`
 	LogLevel           string     `yaml:"log-level"`
+	ConfigService      string     `yaml:"config-service"`
 	TopNProcesses      int        `yaml:"top-n-processes"`
 	MonitoredProcesses []*Process `yaml:"processes,flow"`
 	Plugins            []*Plugin  `yaml:"enabled-plugins,flow"`
