@@ -45,30 +45,40 @@ func main() {
 
 	errplaneSection := bytes.NewBufferString("\n\nerrplane ALL= \\\n")
 
-	for procIdx, proc := range MonitoredProcesses {
+	monitoredProcesses, err := GetMonitoredProcesses(nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot get the list of monitored processes")
+		os.Exit(1)
+	}
+
+	for procIdx, proc := range monitoredProcesses {
 		startCmdFields := strings.Fields(proc.StartCmd)
 		startCmdPath, err := exec.LookPath(startCmdFields[0])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Cannot find executable %s on path\n", startCmdFields[0])
 			os.Exit(1)
 		}
-		stopCmdFields := strings.Fields(proc.StopCmd)
-		stopCmdPath, err := exec.LookPath(stopCmdFields[0])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot find executable %s on path\n", startCmdFields[0])
-			os.Exit(1)
+		startCmdFields[0] = startCmdPath
+		startCmd := strings.Join(startCmdFields, " ")
+
+		stopCmd := ""
+		if proc.StopCmd != "" {
+			stopCmdFields := strings.Fields(proc.StopCmd)
+			stopCmdPath, err := exec.LookPath(stopCmdFields[0])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Cannot find executable %s on path\n", startCmdFields[0])
+				os.Exit(1)
+			}
+			stopCmdFields[0] = stopCmdPath
+			stopCmd = strings.Join(stopCmdFields, " ")
 		}
 
-		startCmdFields[0] = startCmdPath
-		stopCmdFields[0] = stopCmdPath
+		fmt.Fprintf(errplaneSection, "\t(%s) NOPASSWD: %s", proc.User, startCmd)
+		if stopCmd != "" {
+			fmt.Fprintf(errplaneSection, ", \\\n\t(%s) NOPASSWD: %s", proc.User, stopCmd)
+		}
 
-		startCmd := strings.Join(startCmdFields, " ")
-		stopCmd := strings.Join(stopCmdFields, " ")
-
-		fmt.Fprintf(errplaneSection, "\t(%s) NOPASSWD: %s, \\\n", proc.User, startCmd)
-		fmt.Fprintf(errplaneSection, "\t(%s) NOPASSWD: %s", proc.User, stopCmd)
-
-		if procIdx < len(MonitoredProcesses)-1 {
+		if procIdx < len(monitoredProcesses)-1 {
 			fmt.Fprintf(errplaneSection, ", \\\n")
 		}
 	}
