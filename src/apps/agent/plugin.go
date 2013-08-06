@@ -65,50 +65,32 @@ type PluginOutput struct {
 	metrics map[string]float64
 }
 
-type AgentConfiguration struct {
-	Plugins map[string][]*Instance `json:"plugins"`
-}
-
 // handles running plugins
 func monitorPlugins(ep *errplane.Errplane) {
 	var previousConfig *AgentConfiguration
-	var version []byte
+	var version string
 
 	for {
-		// get the list of plugins that should be turned from the config service
-		config := &AgentConfiguration{}
-		database := AgentConfig.AppKey + AgentConfig.Environment
-		url := fmt.Sprintf("http://%s/databases/%s/agent/%s/configuration?api_key=%s", AgentConfig.ConfigService, database,
-			AgentConfig.Hostname, AgentConfig.ApiKey)
-		body, err := getBody(url)
+		config, err := GetPluginsToRun()
 		if err != nil {
-			log.Error("Cannot get configuration from '%s'. Error: %s", url, err)
+			log.Error("Error while getting configuration from backend. Error: %s", err)
 			if previousConfig == nil {
 				goto sleep
 			}
 			config = previousConfig
 		}
-		previousConfig = config
-		log.Debug("Received configuration: %s", string(body))
-		err = json.Unmarshal(body, config)
-		if err != nil {
-			log.Error("Cannot unmarshal '%s'. Error: %s", string(body), err)
-			if previousConfig == nil {
-				goto sleep
-			}
-			config = previousConfig
-		}
-		log.Debug("Parsed response: %v", config)
+
 		log.Debug("Iterating through %d plugins", len(config.Plugins))
 
-		version, err = ioutil.ReadFile(path.Join(PLUGINS_DIR, "version"))
+		// get the list of plugins that should be turned from the config service
+		version, err = GetCurrentPluginsVersion()
 		if err != nil {
 			log.Error("Cannot read current plugins version")
 			goto sleep
 		}
 
 		for name, instances := range config.Plugins {
-			plugin, err := parsePluginInfo(path.Join(PLUGINS_DIR, string(version), name))
+			plugin, err := parsePluginInfo(path.Join(PLUGINS_DIR, version, name))
 			if err != nil {
 				log.Error("Cannot get scripts and info for plugin '%s'. Error: %s", name, err)
 				continue
@@ -119,7 +101,6 @@ func monitorPlugins(ep *errplane.Errplane) {
 			}
 
 			for _, instance := range instances {
-				log.Debug("Running command %s %s", path.Join(plugin.Path, "status"), strings.Join(instance.ArgsList, " "))
 				go runPlugin(ep, instance, plugin)
 			}
 		}
@@ -130,6 +111,7 @@ func monitorPlugins(ep *errplane.Errplane) {
 }
 
 func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata) {
+	log.Debug("Running command %s %s", path.Join(plugin.Path, "status"), strings.Join(instance.ArgsList, " "))
 	cmdPath := path.Join(plugin.Path, "status")
 	cmd := exec.Command(cmdPath, instance.ArgsList...)
 

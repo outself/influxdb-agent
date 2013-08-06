@@ -8,6 +8,7 @@ TAGS
 !package.sh
 !init.d.sh
 !release.sh
+!set_config.sh
 out_rpm/
 test_config.yml
 

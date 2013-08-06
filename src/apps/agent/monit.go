@@ -5,22 +5,29 @@ import (
 	"fmt"
 	"github.com/errplane/errplane-go"
 	"github.com/errplane/gosigar"
-	"math"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 	. "utils"
 )
 
-func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch chan error) {
+func monitorProceses(ep *errplane.Errplane, ch chan error) {
 	pids := sigar.ProcList{}
 
 	var previousProcessesSnapshot map[string]ProcStat
 	var previousProcessesSnapshotByPid map[int]ProcStat
 
-	monitoringSleep := math.Max(float64(AgentConfig.Sleep/10), 1)
+	var monitoredProcesses []*Process
 
 	for {
+		// get the list of monitored processes from the config service
+		var err error
+		monitoredProcesses, err = GetMonitoredProcesses(monitoredProcesses)
+		if err != nil {
+			log.Error("Error while getting the list of processes to monitor. Error: %s", err)
+		}
+
 		pids.Get()
 
 		processes := make(map[string]ProcStat)
@@ -46,6 +53,8 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 		if previousProcessesSnapshot != nil {
 
 			for _, monitoredProcess := range monitoredProcesses {
+				log.Debug("Checking process health %#v", monitoredProcess)
+
 				status := getProcessStatus(monitoredProcess, processes)
 
 				if status != monitoredProcess.LastStatus {
@@ -77,7 +86,7 @@ func monitorProceses(ep *errplane.Errplane, monitoredProcesses []*Process, ch ch
 		previousProcessesSnapshot = processes
 		previousProcessesSnapshotByPid = processesByPid
 
-		time.Sleep(time.Duration(monitoringSleep))
+		time.Sleep(AgentConfig.Sleep)
 	}
 }
 
@@ -101,7 +110,12 @@ func processMatches(monitoredProcess *Process, process interface{}) bool {
 	} else if monitoredProcess.StatusCmd == "regex" {
 		_fullCmd := append([]string{name}, args...)
 		fullCmd := strings.Join(_fullCmd, " ")
-		return monitoredProcess.CompiledRegex.MatchString(fullCmd)
+		matches, err := regexp.MatchString(monitoredProcess.Regex, fullCmd)
+		if err != nil {
+			log.Error("Cannot match regex. Error: %s", err)
+			return false
+		}
+		return matches
 	}
 	return false
 }

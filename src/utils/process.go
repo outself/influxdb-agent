@@ -1,9 +1,5 @@
 package utils
 
-import (
-	"regexp"
-)
-
 type Status int
 
 const (
@@ -12,12 +8,11 @@ const (
 )
 
 type Process struct {
-	Name          string
-	CompiledRegex *regexp.Regexp `yaml:"-"`
-	Regex         string
-	StartCmd      string `yaml:"start"`
-	StopCmd       string `yaml:"stop"`
-	StatusCmd     string `yaml:"status"`
-	User          string
-	LastStatus    Status
+	Name       string `json:"name"`
+	Regex      string `json:"regex"`
+	StartCmd   string `json:"start"`
+	StopCmd    string `json:"stop"`
+	StatusCmd  string `json:"status"`
+	User       string `json:"user"`
+	LastStatus Status `json:"-"`
 }

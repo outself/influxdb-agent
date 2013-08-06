@@ -41,7 +41,7 @@ func main() {
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
 	go procStats(ep, ch)
-	go monitorProceses(ep, AgentConfig.MonitoredProcesses, ch)
+	go monitorProceses(ep, ch)
 	go monitorPlugins(ep)
 	go checkNewPlugins()
 	go startUdpListener(ep)
