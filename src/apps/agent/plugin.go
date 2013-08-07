@@ -55,7 +55,7 @@ const (
 
 var (
 	DEFAULT_INSTANCE  = &Instance{"default", nil, nil}
-	DEFAULT_INSTANCES = []*Instance{&Instance{"default", nil, nil}}
+	DEFAULT_INSTANCES = []*Instance{&Instance{"", nil, nil}}
 )
 
 type PluginOutput struct {
@@ -156,23 +156,39 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 		// other metrics are written to plugins.<plugin-name>.<metric-name> with the given value
 		// all metrics have the host name as a dimension
 
-		report(ep, fmt.Sprintf("plugins.%s.%s.status", plugin.Name, instance.Name), 1.0, time.Now(), errplane.Dimensions{
+		dimensions := errplane.Dimensions{
 			"host":       AgentConfig.Hostname,
 			"status":     output.state.String(),
 			"status_msg": output.msg,
-		}, nil)
+		}
+		if instance.Name != "" {
+			dimensions["instance"] = instance.Name
+		}
+
+		report(ep, fmt.Sprintf("plugins.%s.status", plugin.Name), 1.0, time.Now(), dimensions, nil)
 
 		if output.points != nil {
 			// add the plugins.<plugin-name>.<instance-name> to the metric names
+			// if the instance name isn't empty add it to the dimensions
 			for _, write := range output.points {
-				write.Name = fmt.Sprintf("plugins.%s.%s.%s", plugin.Name, instance.Name, write.Name)
+				write.Name = fmt.Sprintf("plugins.%s.%s", plugin.Name, write.Name)
+				if instance.Name != "" {
+					for _, point := range write.Points {
+						point.Dimensions["instance"] = instance.Name
+					}
+				}
 			}
+
 			ep.SendHttp(&errplane.WriteOperation{Writes: output.points})
 		}
 
 		if output.metrics != nil {
+			dimensions := errplane.Dimensions{"host": AgentConfig.Hostname}
+			if instance.Name != "" {
+				dimensions["instance"] = instance.Name
+			}
 			for name, value := range output.metrics {
-				report(ep, fmt.Sprintf("plugins.%s.%s.%s", plugin.Name, instance.Name, name), value, time.Now(), errplane.Dimensions{"host": AgentConfig.Hostname}, nil)
+				report(ep, fmt.Sprintf("plugins.%s.%s", plugin.Name, name), value, time.Now(), dimensions, nil)
 			}
 		}
 	}
