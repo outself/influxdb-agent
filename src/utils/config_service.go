@@ -136,10 +136,9 @@ func GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
 		}
 
 		if p := processesMap[process.Name]; p != nil {
-			returnedProcesses = append(returnedProcesses, p)
-		} else {
-			returnedProcesses = append(returnedProcesses, process)
+			process.LastStatus = p.LastStatus
 		}
+		returnedProcesses = append(returnedProcesses, process)
 	}
 	return returnedProcesses, nil
 }
