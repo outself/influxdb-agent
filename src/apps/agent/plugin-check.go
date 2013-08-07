@@ -17,11 +17,26 @@ func checkNewPlugins() {
 	for {
 		plugins := getAvailablePlugins()
 
+		// filter out plugins that are already installed
+		pluginsToRun, err := GetPluginsToRun()
+		pluginsToCheck := make(map[string]*PluginMetadata)
+		if err == nil {
+			for name, plugin := range plugins {
+				if _, ok := pluginsToRun.Plugins[name]; ok {
+					continue
+				}
+
+				pluginsToCheck[name] = plugin
+			}
+		} else {
+			pluginsToCheck = plugins
+		}
+
 		// remove the plugins that are already running
 
 		availablePlugins := make([]string, 0)
 
-		for name, plugin := range plugins {
+		for name, plugin := range pluginsToCheck {
 			log.Debug("checking whether plugin %s needs to be installed on this server or not", name)
 
 			cmd := exec.Command(path.Join(plugin.Path, "should_monitor"))
