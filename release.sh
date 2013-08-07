@@ -32,6 +32,7 @@ git push origin --tags
 
 for filepath in out_rpm/*.{rpm,deb}; do
     [ -e "$filepath" ] || continue
+    echo "Uploading $filepath to S3"
     filename=`basename $filepath`
     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --acl public-read
 done
