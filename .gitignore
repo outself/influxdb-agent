@@ -1,14 +1,8 @@
 pkg/
 *~
 TAGS
-*.sh
-!build.sh
-!exports.sh
-!scripts/post_install.sh
-!package.sh
-!init.d.sh
-!release.sh
-!set_config.sh
+flymake.sh
+refresh_tags.sh
 out_rpm/
 test_config.yml
 
