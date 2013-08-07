@@ -313,6 +313,9 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 
 	for key, value := range metrics {
 		value = strings.Split(strings.TrimSpace(value), ";")[0]
+		if len(value) == 0 {
+			continue // empty value, don't bother
+		}
 
 		uom := value[len(value)-1]
 		switch uom {
