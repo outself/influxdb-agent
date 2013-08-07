@@ -61,8 +61,8 @@ func mergeStats(old, current map[int]ProcStat) []MergedProcStat {
 			continue
 		}
 
-		if newStat.cpu.Total < oldStat.cpu.Total {
-			log.Info("A new process seems to have stolen the pid of an old p")
+		if newStat.cpu.Total < oldStat.cpu.Total || newStat.state.Name != oldStat.state.Name {
+			log.Info("A new process seems to have stolen the pid of an old process")
 			continue
 		}
 

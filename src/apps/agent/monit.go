@@ -110,11 +110,10 @@ func processMatches(monitoredProcess *Process, process interface{}) bool {
 		panic(fmt.Errorf("Unknwon type %T", process))
 	}
 
-	if monitoredProcess.StatusCmd == "name" {
+	if len(args) == 0 || monitoredProcess.StatusCmd == "name" {
 		return name == monitoredProcess.Name
 	} else if monitoredProcess.StatusCmd == "regex" {
-		_fullCmd := append([]string{name}, args...)
-		fullCmd := strings.Join(_fullCmd, " ")
+		fullCmd := strings.Join(args, " ")
 		matches, err := regexp.MatchString(monitoredProcess.Regex, fullCmd)
 		if err != nil {
 			log.Error("Cannot match regex. Error: %s", err)
