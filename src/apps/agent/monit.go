@@ -12,11 +12,38 @@ import (
 	. "utils"
 )
 
-func monitorProceses(ep *errplane.Errplane, ch chan error) {
-	pids := sigar.ProcList{}
+type ProcsByName map[string]*ProcStat
+type ProcsByPid map[int]*ProcStat
 
-	var previousProcessesSnapshot map[string]ProcStat
-	var previousProcessesSnapshotByPid map[int]ProcStat
+func getProcesses() (ProcsByName, ProcsByPid) {
+	processes := make(map[string]*ProcStat)
+	processesByPid := make(map[int]*ProcStat)
+
+	pids := sigar.ProcList{}
+	pids.Get()
+
+	for _, pid := range pids.List {
+		procStat := getProcStat(pid)
+
+		if procStat == nil {
+			log.Warn("Cannot get stat for pid %d", pid)
+			continue
+		}
+
+		state := procStat.state
+
+		// FIXME: what if there is more than one process ?
+		processes[state.Name] = procStat
+		processesByPid[pid] = procStat
+	}
+
+	return processes, processesByPid
+}
+
+func monitorProceses(ep *errplane.Errplane, ch chan error) {
+
+	var previousProcessesSnapshot map[string]*ProcStat
+	var previousProcessesSnapshotByPid map[int]*ProcStat
 
 	var monitoredProcesses []*Process
 
@@ -28,27 +55,9 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 			log.Error("Error while getting the list of processes to monitor. Error: %s", err)
 		}
 
-		pids.Get()
-
-		processes := make(map[string]ProcStat)
-		processesByPid := make(map[int]ProcStat)
+		processes, processesByPid := getProcesses()
 
 		now := time.Now()
-
-		for _, pid := range pids.List {
-			procStat := getProcStat(pid)
-
-			if procStat == nil {
-				log.Warn("Cannot get stat for pid %d", pid)
-				continue
-			}
-
-			state := procStat.state
-
-			// FIXME: what if there is more than one process ?
-			processes[state.Name] = *procStat
-			processesByPid[pid] = *procStat
-		}
 
 		if previousProcessesSnapshot != nil {
 
@@ -124,33 +133,25 @@ func processMatches(monitoredProcess *Process, process interface{}) bool {
 	return false
 }
 
-func getProcessStatus(process *Process, currentProcessesSnapshot map[string]ProcStat) Status {
+func findProcess(process *Process, processes ProcsByName) *ProcStat {
 	if process.StatusCmd == "name" {
-		state, ok := currentProcessesSnapshot[process.Name]
-
-		log.Fine("Getting status of %s, %v, %v", process.Name, state, ok)
-
-		if ok {
-			return UP
-		}
-		return DOWN
+		return processes[process.Name]
 	} else if process.StatusCmd == "regex" {
-		found := false
-
-		for _, proc := range currentProcessesSnapshot {
+		for _, proc := range processes {
 			if processMatches(process, proc) {
-				found = true
-				break
+				return proc
 			}
 		}
+	} else {
+		log.Error("Unknown status command '%s' used. Assuming process down", process.StatusCmd)
+	}
+	return nil
+}
 
-		if !found {
-			return DOWN
-		}
+func getProcessStatus(process *Process, currentProcessesSnapshot ProcsByName) Status {
+	if process := findProcess(process, currentProcessesSnapshot); process != nil {
 		return UP
 	}
-
-	log.Error("Unknown status command '%s' used. Assuming process down", process.StatusCmd)
 	return DOWN
 }
 
@@ -159,22 +160,53 @@ func reportProcessDown(ep *errplane.Errplane, process *Process) {
 	reportProcessEvent(ep, process.Name, "down")
 }
 
+func runCmd(cmd, user string) error {
+	args := []string{"-u", user, "-n"}
+	args = append(args, strings.Fields(cmd)...)
+	command := exec.Command("sudo", args...)
+	return command.Run()
+}
+
 func startProcess(process *Process) {
 	log.Info("Trying to start process %s", process.Name)
-	// The following requires an entry like the following in the sudoers file
-	// errplane ALL=(root) NOPASSWD: /usr/sbin/service mysql start, (root) NOPASSWD: /usr/sbin/service mysql stop
-	// where root is the user that is used to start and stop the service
 
-	if process.StartCmd == "" {
+	if process.StopCmd == "" {
 		log.Warn("No start command found for service %s", process.Name)
 	}
 
-	args := []string{"-u", process.User, "-n"}
-	args = append(args, strings.Fields(process.StartCmd)...)
-	cmd := exec.Command("sudo", args...)
-	if err := cmd.Run(); err != nil {
+	if err := runCmd(process.StartCmd, process.User); err != nil {
 		log.Error("Error while starting service %s. Error: %s", process.Name, err)
 	}
+}
+
+func stopProcess(process *Process) {
+	log.Info("Trying to stop process %s", process.Name)
+
+	if process.StopCmd == "kill" || process.StopCmd == "" {
+		killProcess(process)
+		return
+	}
+
+	if err := runCmd(process.StopCmd, process.User); err != nil {
+		log.Error("Error while stopping service %s. Error: %s", process.Name, err)
+	}
+}
+
+func killProcess(process *Process) {
+	processes, _ := getProcesses()
+	stat := findProcess(process, processes)
+	if stat == nil {
+		log.Warn("Cannot find process %s", process.Name)
+		return
+	}
+	if err := runCmd(fmt.Sprintf("kill %d", stat.pid), process.Name); err == nil {
+		return
+	}
+	log.Warn("Cannot kill process '%s', trying kill -9 now.", process.Name)
+	if err := runCmd(fmt.Sprintf("kill -9 %d", stat.pid), process.Name); err == nil {
+		return
+	}
+	log.Error("Couldn't kill process '%s'", process.Name)
 }
 
 func reportProcessUp(ep *errplane.Errplane, process *Process) {
@@ -183,6 +215,11 @@ func reportProcessUp(ep *errplane.Errplane, process *Process) {
 }
 
 func reportProcessEvent(ep *errplane.Errplane, name, status string) {
+	if _, ok := snoozedProcesses.Get(name); ok {
+		log.Debug("Not reporting %s event for '%s' since it is snoozed", status, name)
+		return
+	}
+
 	ep.Report("server.process.monitoring", 1.0, time.Now(), "", errplane.Dimensions{
 		"host":    AgentConfig.Hostname,
 		"process": name,
