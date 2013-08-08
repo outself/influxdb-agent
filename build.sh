@@ -12,7 +12,9 @@ git submodule update --init
 go get $build_args github.com/errplane/errplane-go \
     github.com/errplane/gosigar \
     launchpad.net/goyaml \
-    code.google.com/p/log4go
+    code.google.com/p/log4go \
+    github.com/bmizerany/pat \
+	  github.com/pmylund/go-cache
 
 go build apps/agent
 go build apps/config-generator

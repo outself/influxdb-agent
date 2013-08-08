@@ -13,6 +13,8 @@ src/github.com/errplane/gosigar/
 src/launchpad.net/goyaml
 src/launchpad.net/gocheck
 src/code.google.com/p/log4go
+src/github.com/bmizerany/pat/
+src/github.com/pmylund/go-cache/
 
 # binaries
 /config-generator
