@@ -26,7 +26,12 @@ function send_request() {
     action=$1
     process_name=$2
 
-    curl -v http://localhost:$agent_port/$action/$process_name
+    if ! curl -v http://localhost:$agent_port/$action/$process_name 2>&1 | grep "HTTP/1.1 200" >/dev/null; then
+        echo "Failed to $action $process_name"
+        exit 1
+    else
+        echo "Successfully sent action $action for $process_name"
+    fi
 }
 
 # Note the quotes around `$TEMP': they are essential!

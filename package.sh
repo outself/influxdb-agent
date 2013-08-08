@@ -42,6 +42,7 @@ rm errplane-agent*.deb
 # build the x86_64 version
 UPDATE=on ./build.sh -v $version
 cp agent $data_dir/
+cp scripts/agent_ctl $data_dir/
 cp config-generator $data_dir/
 cp sudoers-generator $data_dir/
 pushd out_rpm
