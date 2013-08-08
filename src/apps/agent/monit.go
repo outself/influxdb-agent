@@ -76,7 +76,9 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 				}
 
 				if status == DOWN {
-					startProcess(monitoredProcess)
+					if _, ok := snoozedProcesses.Get(monitoredProcess.Name); !ok {
+						startProcess(monitoredProcess)
+					}
 				}
 
 				monitoredProcess.LastStatus = status
@@ -112,7 +114,7 @@ func processMatches(monitoredProcess *Process, process interface{}) bool {
 	case MergedProcStat:
 		name = x.name
 		args = x.args
-	case ProcStat:
+	case *ProcStat:
 		name = x.state.Name
 		args = x.args.List
 	default:
@@ -163,6 +165,7 @@ func reportProcessDown(ep *errplane.Errplane, process *Process) {
 func runCmd(cmd, user string) error {
 	args := []string{"-u", user, "-n"}
 	args = append(args, strings.Fields(cmd)...)
+	log.Debug("Executing 'sudo %s'", cmd)
 	command := exec.Command("sudo", args...)
 	return command.Run()
 }
@@ -170,7 +173,7 @@ func runCmd(cmd, user string) error {
 func startProcess(process *Process) {
 	log.Info("Trying to start process %s", process.Name)
 
-	if process.StopCmd == "" {
+	if process.StartCmd == "" {
 		log.Warn("No start command found for service %s", process.Name)
 	}
 
@@ -199,11 +202,14 @@ func killProcess(process *Process) {
 		log.Warn("Cannot find process %s", process.Name)
 		return
 	}
-	if err := runCmd(fmt.Sprintf("kill %d", stat.pid), process.Name); err == nil {
+	command := fmt.Sprintf("kill %d", stat.pid)
+	log.Debug("Running: %s", command)
+	if err := runCmd(command, process.Name); err == nil {
 		return
 	}
-	log.Warn("Cannot kill process '%s', trying kill -9 now.", process.Name)
-	if err := runCmd(fmt.Sprintf("kill -9 %d", stat.pid), process.Name); err == nil {
+	command = fmt.Sprintf("kill -9 %d", stat.pid)
+	log.Warn("Cannot kill process '%s', trying %s", process.Name, command)
+	if err := runCmd(command, process.Name); err == nil {
 		return
 	}
 	log.Error("Couldn't kill process '%s'", process.Name)

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+function print_usage {
+    echo "Usage: $0 <args>"
+    echo "args:"
+    echo "  --stop:    Stop monitoring the given process name"
+    echo "  --start:   Start monitoring the given process name"
+    echo "  --restart: Restart the given process name (starts monitoring automatically)"
+    echo "  --help:    print this help"
+}
+
+mysql_args=""
+
+TEMP=`getopt -o h --long start:,stop:,restart:,help \
+     -n $0 -- "$@"`
+
+if [ $? != 0 ] ; then print_usage ; exit 1 ; fi
+
+function send_request() {
+    agent_port=`cat /tmp/errplane-agent.port`
+    if [ $# -ne 2 ]; then
+        echo "Usage: $0 action process-name"
+        return 1
+    fi
+
+    action=$1
+    process_name=$2
+
+    curl -v http://localhost:$agent_port/$action/$process_name
+}
+
+# Note the quotes around `$TEMP': they are essential!
+eval set -- "$TEMP"
+
+while true ; do
+    case "$1" in
+        --restart) send_request restart_process $2 ; shift 2;;
+        --start) send_request start_monitoring $2 ; shift 2;;
+        --stop) send_request stop_monitoring $2 ; shift 2;;
+        -h|--help) print_usage; exit 1; shift 2;;
+        --) shift ; break ;;
+        *) echo "Internal error!" ; exit 1 ;;
+    esac
+done
+

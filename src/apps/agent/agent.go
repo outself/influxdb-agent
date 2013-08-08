@@ -45,6 +45,7 @@ func main() {
 	go monitorPlugins(ep)
 	go checkNewPlugins()
 	go startUdpListener(ep)
+	go startLocalServer()
 	log.Info("Agent started successfully")
 	err = <-ch
 	log.Error("Data collection stopped unexpectedly. Error: %s", err)
@@ -85,21 +86,10 @@ func report(ep *errplane.Errplane, metric string, value float64, timestamp time.
 }
 
 func procStats(ep *errplane.Errplane, ch chan error) {
-	var previousStats map[int]ProcStat
+	var previousStats map[int]*ProcStat
 
 	for {
-		pids := sigar.ProcList{}
-		pids.Get()
-
-		procStats := make(map[int]ProcStat)
-
-		for _, pid := range pids.List {
-			stat := getProcStat(pid)
-			if stat == nil {
-				continue
-			}
-			procStats[pid] = *stat
-		}
+		_, procStats := getProcesses()
 
 		if previousStats != nil {
 			mergedStats := mergeStats(previousStats, procStats)
