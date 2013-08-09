@@ -6,7 +6,8 @@ if [ $# -ne 1 ]; then
 fi
 
 version=$1
-hosts="r1.apiv3"
+# these are the hosts I have in my ssh config (it won't work unless you have my ssh config)
+hosts="r1.apiv3 r2.apiv3 r3.apiv3 w1.apiv3 w2.apiv3 udp.apiv3 web1.apiv3 web2.apiv3"
 
 for host in `echo $hosts | tr ' ' '\n'`; do
     echo "deploying to $host"
