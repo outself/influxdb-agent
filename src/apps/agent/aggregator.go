@@ -57,7 +57,7 @@ func handler(ep *errplane.Errplane) aggregator.Handler {
 
 func startUdpListener(ep *errplane.Errplane) {
 	log.Info("Starting data aggregator...")
-	theAggregator := aggregator.NewAggregator(AgentConfig.FlushInterval/time.Second, handler(ep), AgentConfig.ApiKey, AgentConfig.Percentiles)
+	theAggregator := aggregator.NewAggregator(AgentConfig.FlushInterval/time.Second, handler(ep), AgentConfig.ApiKey, AgentConfig.Percentiles, true)
 	udpReceiver := aggregator.NewUdpReceiver(AgentConfig.UdpAddr, handler(ep), theAggregator)
 	udpReceiver.ListenAndReceive()
 }
