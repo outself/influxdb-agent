@@ -38,6 +38,7 @@ func main() {
 	ch := make(chan error)
 	go memStats(ep, ch)
 	go cpuStats(ep, ch)
+	go networkStats(ep, ch)
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
 	go procStats(ep, ch)
@@ -312,6 +313,53 @@ func cpuStats(ep *errplane.Errplane, ch chan error) {
 		}
 		skipFirst = false
 		prevCpu = cpu
+		time.Sleep(AgentConfig.Sleep)
+	}
+}
+
+func networkStats(ep *errplane.Errplane, ch chan error) {
+	skipFirst := true
+
+	prevNetwork := NetworkUtilization{}
+	for {
+		network := NetworkUtilization{}
+		err := network.Get()
+
+		timestamp := time.Now()
+		if err != nil {
+			ch <- err
+			return
+		}
+
+		if !skipFirst {
+			for name, utilization := range network {
+
+				dimensions := errplane.Dimensions{"host": AgentConfig.Hostname, "device": name}
+
+				rxBytes := float64(utilization.rxBytes - prevNetwork[name].rxBytes)
+				rxPackets := float64(utilization.rxPackets - prevNetwork[name].rxPackets)
+				rxDroppedPackets := float64(utilization.rxDroppedPackets - prevNetwork[name].rxDroppedPackets)
+				rxErrors := float64(utilization.rxErrors - prevNetwork[name].rxErrors)
+
+				txBytes := float64(utilization.txBytes - prevNetwork[name].txBytes)
+				txPackets := float64(utilization.txPackets - prevNetwork[name].txPackets)
+				txDroppedPackets := float64(utilization.txDroppedPackets - prevNetwork[name].txDroppedPackets)
+				txErrors := float64(utilization.txErrors - prevNetwork[name].txErrors)
+
+				if report(ep, "server.stats.network.rxBytes", rxBytes, timestamp, dimensions, ch) ||
+					report(ep, "server.stats.network.rxPackets", rxPackets, timestamp, dimensions, ch) ||
+					report(ep, "server.stats.network.rxDropped", rxDroppedPackets, timestamp, dimensions, ch) ||
+					report(ep, "server.stats.network.rxErrors", rxErrors, timestamp, dimensions, ch) ||
+					report(ep, "server.stats.network.txBytes", txBytes, timestamp, dimensions, ch) ||
+					report(ep, "server.stats.network.txPackets", txPackets, timestamp, dimensions, ch) ||
+					report(ep, "server.stats.network.txDropped", txDroppedPackets, timestamp, dimensions, ch) ||
+					report(ep, "server.stats.network.txErrors", txErrors, timestamp, dimensions, ch) {
+					return
+				}
+			}
+		}
+		skipFirst = false
+		prevNetwork = network
 		time.Sleep(AgentConfig.Sleep)
 	}
 }
