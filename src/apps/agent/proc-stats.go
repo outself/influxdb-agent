@@ -15,7 +15,7 @@ type ProcStat struct {
 	args   sigar.ProcArgs
 }
 
-func getProcStat(pid int) *ProcStat {
+func getProcStat(pid int) (*ProcStat, error) {
 	now := time.Now()
 	state := sigar.ProcState{}
 	mem := sigar.ProcMem{}
@@ -23,19 +23,19 @@ func getProcStat(pid int) *ProcStat {
 	procArg := sigar.ProcArgs{}
 
 	if err := state.Get(pid); err != nil {
-		return nil
+		return nil, err
 	}
 	if err := mem.Get(pid); err != nil {
-		return nil
+		return nil, err
 	}
 	if err := procTime.Get(pid); err != nil {
-		return nil
+		return nil, err
 	}
 	if err := procArg.Get(pid); err != nil {
-		return nil
+		return nil, err
 	}
 
-	return &ProcStat{pid, now, procTime, mem, state, procArg}
+	return &ProcStat{pid, now, procTime, mem, state, procArg}, nil
 }
 
 type MergedProcStat struct {
