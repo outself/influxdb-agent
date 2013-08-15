@@ -23,10 +23,9 @@ func getProcesses() (ProcsByName, ProcsByPid) {
 	pids.Get()
 
 	for _, pid := range pids.List {
-		procStat := getProcStat(pid)
-
-		if procStat == nil {
-			log.Warn("Cannot get stat for pid %d", pid)
+		procStat, err := getProcStat(pid)
+		if err != nil {
+			log.Warn("Cannot get stat for pid %d. Error: %s", pid, err)
 			continue
 		}
 
