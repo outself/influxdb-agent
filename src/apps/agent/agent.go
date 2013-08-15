@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/errplane/errplane-go"
 	"github.com/errplane/gosigar"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -95,8 +96,10 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 		if previousStats != nil {
 			mergedStats := mergeStats(previousStats, procStats)
 
+			n := int(math.Min(float64(AgentConfig.TopNProcesses), float64(len(mergedStats))))
+
 			sort.Sort(ProcStatsSortableByCpu(mergedStats))
-			topNByCpu := mergedStats[0:AgentConfig.TopNProcesses]
+			topNByCpu := mergedStats[0:n]
 			now := time.Now()
 			for _, stat := range topNByCpu {
 				if reportProcessCpuUsage(ep, &stat, now, true, ch) {
@@ -104,7 +107,7 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 				}
 			}
 			sort.Sort(ProcStatsSortableByMem(mergedStats))
-			topNByMem := mergedStats[0:AgentConfig.TopNProcesses]
+			topNByMem := mergedStats[0:n]
 			for _, stat := range topNByMem {
 				if reportProcessMemUsage(ep, &stat, now, true, ch) {
 					return
