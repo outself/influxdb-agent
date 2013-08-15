@@ -93,6 +93,8 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 						i += 1
 						reportProcessCpuUsage(ep, &stat, now, false, ch)
 						reportProcessMemUsage(ep, &stat, now, false, ch)
+						reportProcessIOReadUsage(ep, &stat, now, false, ch)
+						reportProcessIOWriteUsage(ep, &stat, now, false, ch)
 					}
 				}
 			}

@@ -113,6 +113,20 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 					return
 				}
 			}
+			sort.Sort(ProcStatsSortableByIORead(mergedStats))
+			topNByIORead := mergedStats[0:n]
+			for _, stat := range topNByIORead {
+				if reportProcessIOReadUsage(ep, &stat, now, true, ch) {
+					return
+				}
+			}
+			sort.Sort(ProcStatsSortableByIOWrite(mergedStats))
+			topNByIOWrite := mergedStats[0:n]
+			for _, stat := range topNByIOWrite {
+				if reportProcessIOWriteUsage(ep, &stat, now, true, ch) {
+					return
+				}
+			}
 		}
 
 		previousStats = procStats
@@ -126,6 +140,14 @@ func reportProcessCpuUsage(ep *errplane.Errplane, stat *MergedProcStat, now time
 
 func reportProcessMemUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
 	return reportProcessMetric(ep, stat, "mem", now, top, ch)
+}
+
+func reportProcessIOReadUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
+	return reportProcessMetric(ep, stat, "read", now, top, ch)
+}
+
+func reportProcessIOWriteUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
+	return reportProcessMetric(ep, stat, "write", now, top, ch)
 }
 
 func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName string, now time.Time, top bool, ch chan error) bool {
@@ -144,6 +166,12 @@ func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName
 	case "mem":
 		metric = fmt.Sprintf("server.stats.procs.mem%s", suffix)
 		value = stat.memUsage
+	case "read":
+		metric = fmt.Sprintf("server.stats.procs.io.read%s", suffix)
+		value = stat.ioReadRate
+	case "write":
+		metric = fmt.Sprintf("server.stats.procs.io.write%s", suffix)
+		value = stat.ioWriteRate
 	default:
 		log.Error("unknown metric name %s", metricName)
 		return true

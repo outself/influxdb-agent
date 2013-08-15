@@ -13,37 +13,44 @@ type ProcStat struct {
 	memory sigar.ProcMem
 	state  sigar.ProcState
 	args   sigar.ProcArgs
+	io     ProcessIO
 }
 
-func getProcStat(pid int) *ProcStat {
+func getProcStat(pid int) (*ProcStat, error) {
 	now := time.Now()
 	state := sigar.ProcState{}
 	mem := sigar.ProcMem{}
 	procTime := sigar.ProcTime{}
 	procArg := sigar.ProcArgs{}
+	procIO := ProcessIO{}
 
 	if err := state.Get(pid); err != nil {
-		return nil
+		return nil, err
 	}
 	if err := mem.Get(pid); err != nil {
-		return nil
+		return nil, err
 	}
 	if err := procTime.Get(pid); err != nil {
-		return nil
+		return nil, err
 	}
 	if err := procArg.Get(pid); err != nil {
-		return nil
+		return nil, err
+	}
+	if err := procIO.Get(pid); err != nil {
+		return nil, err
 	}
 
-	return &ProcStat{pid, now, procTime, mem, state, procArg}
+	return &ProcStat{pid, now, procTime, mem, state, procArg, procIO}, nil
 }
 
 type MergedProcStat struct {
-	pid      int
-	name     string
-	args     []string
-	cpuUsage float64
-	memUsage float64
+	pid         int
+	name        string
+	args        []string
+	cpuUsage    float64
+	memUsage    float64
+	ioReadRate  float64
+	ioWriteRate float64
 }
 
 func mergeStats(old, current map[int]*ProcStat) []MergedProcStat {
@@ -69,7 +76,9 @@ func mergeStats(old, current map[int]*ProcStat) []MergedProcStat {
 		uptime := newStat.now.Sub(oldStat.now).Nanoseconds() / int64(time.Millisecond)
 		cpuUsage := float64(newStat.cpu.Total-oldStat.cpu.Total) / float64(uptime) * 100
 		memUsage := float64(newStat.memory.Resident)
-		mergedStat = append(mergedStat, MergedProcStat{newStat.pid, newStat.state.Name, newStat.args.List, cpuUsage, memUsage})
+		ioReadRate := float64(newStat.io.ReadBytes-oldStat.io.ReadBytes) / float64(uptime) / 1000
+		ioWriteRate := float64(newStat.io.WriteBytes-oldStat.io.WriteBytes) / float64(uptime) / 1000
+		mergedStat = append(mergedStat, MergedProcStat{newStat.pid, newStat.state.Name, newStat.args.List, cpuUsage, memUsage, ioReadRate, ioWriteRate})
 	}
 	return mergedStat
 }
@@ -84,6 +93,8 @@ func (self *ProcStat) MemUsage() float64 {
 
 type ProcStatsSortableByCpu []MergedProcStat
 type ProcStatsSortableByMem []MergedProcStat
+type ProcStatsSortableByIORead []MergedProcStat
+type ProcStatsSortableByIOWrite []MergedProcStat
 
 func (self ProcStatsSortableByCpu) Len() int           { return len(self) }
 func (self ProcStatsSortableByCpu) Swap(i, j int)      { self[i], self[j] = self[j], self[i] }
@@ -92,3 +103,15 @@ func (self ProcStatsSortableByCpu) Less(i, j int) bool { return self[i].cpuUsage
 func (self ProcStatsSortableByMem) Len() int           { return len(self) }
 func (self ProcStatsSortableByMem) Swap(i, j int)      { self[i], self[j] = self[j], self[i] }
 func (self ProcStatsSortableByMem) Less(i, j int) bool { return self[i].memUsage > self[j].memUsage }
+
+func (self ProcStatsSortableByIORead) Len() int      { return len(self) }
+func (self ProcStatsSortableByIORead) Swap(i, j int) { self[i], self[j] = self[j], self[i] }
+func (self ProcStatsSortableByIORead) Less(i, j int) bool {
+	return self[i].ioReadRate > self[j].ioReadRate
+}
+
+func (self ProcStatsSortableByIOWrite) Len() int      { return len(self) }
+func (self ProcStatsSortableByIOWrite) Swap(i, j int) { self[i], self[j] = self[j], self[i] }
+func (self ProcStatsSortableByIOWrite) Less(i, j int) bool {
+	return self[i].ioWriteRate > self[j].ioWriteRate
+}
