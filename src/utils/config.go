@@ -9,21 +9,23 @@ import (
 )
 
 type Config struct {
-	Hostname      string `yaml:"-"`
-	UdpHost       string `yaml:"udp-host"`
-	HttpHost      string `yaml:"http-host"`
-	ApiKey        string `yaml:"api-key"`
-	AppKey        string `yaml:"app-key"`
-	Environment   string
-	Sleep         time.Duration `yaml:"-"`
-	RawSleep      string        `yaml:"sleep"`
-	TopNSleep     time.Duration `yaml:"-"`
-	RawTopNSleep  string        `yaml:"top-n-sleep"`
-	Proxy         string
-	LogFile       string `yaml:"log-file"`
-	LogLevel      string `yaml:"log-level"`
-	ConfigService string `yaml:"config-service"`
-	TopNProcesses int    `yaml:"top-n-processes"`
+	Hostname          string `yaml:"-"`
+	UdpHost           string `yaml:"udp-host"`
+	HttpHost          string `yaml:"http-host"`
+	ApiKey            string `yaml:"api-key"`
+	AppKey            string `yaml:"app-key"`
+	Environment       string
+	Sleep             time.Duration `yaml:"-"`
+	RawSleep          string        `yaml:"sleep"`
+	TopNSleep         time.Duration `yaml:"-"`
+	RawTopNSleep      string        `yaml:"top-n-sleep"`
+	MonitoredSleep    time.Duration `yaml:"-"`
+	RawMonitoredSleep string        `yaml:"monitored-sleep"`
+	Proxy             string
+	LogFile           string `yaml:"log-file"`
+	LogLevel          string `yaml:"log-level"`
+	ConfigService     string `yaml:"config-service"`
+	TopNProcesses     int    `yaml:"top-n-processes"`
 
 	// aggregator configuration
 	Percentiles      []float64     `yaml:"percentiles,flow"`
@@ -68,6 +70,11 @@ func InitConfig(path string) error {
 	}
 
 	AgentConfig.TopNSleep, err = time.ParseDuration(AgentConfig.RawTopNSleep)
+	if err != nil {
+		return err
+	}
+
+	AgentConfig.MonitoredSleep, err = time.ParseDuration(AgentConfig.RawMonitoredSleep)
 	if err != nil {
 		return err
 	}

@@ -101,7 +101,7 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 		previousProcessesSnapshot = processes
 		previousProcessesSnapshotByPid = processesByPid
 
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(AgentConfig.MonitoredSleep)
 	}
 }
 
