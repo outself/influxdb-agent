@@ -25,9 +25,10 @@ data_dir=out_rpm/data/errplane-agent/versions/$version/
 config_dir=out_rpm/etc/errplane-agent
 initd_dir=out_rpm/etc/init.d/
 plugins_dir=out_rpm/data/errplane-agent/plugins
+shared_dir=out_rpm/data/errplane-agent/shared
 
 rm -rf out_rpm
-mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir
+mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir $shared_dir
 
 cp scripts/init.d.sh $initd_dir/errplane-agent
 
