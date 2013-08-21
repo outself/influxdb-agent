@@ -17,12 +17,14 @@ else
     version=$1
 fi
 
-echo -n "Release version $version ? [Y/n] "
-read response
-response=`echo $response | tr 'A-Z' 'a-z'`
-if [ "x$response" == "xn" ]; then
-    echo "Aborting"
-    exit 1
+if [ "x$assume_yes" != "xtrue" ]; then
+    echo -n "Release version $version ? [Y/n] "
+    read response
+    response=`echo $response | tr 'A-Z' 'a-z'`
+    if [ "x$response" == "xn" ]; then
+        echo "Aborting"
+        exit 1
+    fi
 fi
 
 if ! which aws > /dev/null 2>&1; then
