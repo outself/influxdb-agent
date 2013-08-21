@@ -29,6 +29,7 @@ shared_dir=out_rpm/data/errplane-agent/shared
 
 rm -rf out_rpm
 mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir $shared_dir
+rm -rf package
 mkdir package
 
 cp scripts/post_install.sh /tmp/post_install.sh
