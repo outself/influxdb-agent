@@ -12,7 +12,9 @@ ln -sfn /data/errplane-agent/shared/log.txt /data/errplane-agent/current/log.txt
 chown errplane:errplane -R /data/errplane-agent/current
 chown errplane:errplane -R /usr/bin/errplane-agent
 
-update-rc.d -f errplane-agent remove
-update-rc.d errplane-agent defaults
+if [ -x update-rc.d ]; then
+    update-rc.d -f errplane-agent remove
+    update-rc.d errplane-agent defaults
+fi
 
 echo "Finished updating the Errplane agent"

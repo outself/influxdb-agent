@@ -29,8 +29,7 @@ shared_dir=out_rpm/data/errplane-agent/shared
 
 rm -rf out_rpm
 mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir $shared_dir
-
-cp scripts/init.d.sh $initd_dir/errplane-agent
+mkdir package
 
 cp scripts/post_install.sh /tmp/post_install.sh
 sed -i "s/REPLACE_VERSION/${version}/g" /tmp/post_install.sh
@@ -46,17 +45,30 @@ cp agent $data_dir/
 cp scripts/agent_ctl $data_dir/
 cp config-generator $data_dir/
 cp sudoers-generator $data_dir/
+cp opensource.md $data_dir/
+cp scripts/init.d.sh $initd_dir/errplane-agent
 pushd out_rpm
 fpm  -s dir -t rpm --rpm-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+mv *.rpm ../package/
 fpm  -s dir -t deb --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+mv *.deb ../package/
 popd
+
+rm -rf out_rpm
+mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir $shared_dir
 
 # build the 32 bit version
 GOARCH=386 UPDATE=on ./build.sh -v $version
 cp agent $data_dir/
+cp scripts/agent_ctl $data_dir/
+cp config-generator $data_dir/
+cp sudoers-generator $data_dir/
 cp opensource.md $data_dir/
+cp scripts/init.d.sh $initd_dir/errplane-agent
 pushd out_rpm
-setarch i686 fpm -s dir -t rpm --rpm-user errplane --rpm-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
-fpm -s dir -t deb -a i686 --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+setarch i386 fpm -s dir -t rpm --rpm-user errplane --rpm-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+mv *.rpm ../package/
+fpm -s dir -t deb -a i386 --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+mv *.deb ../package/
 popd
 
