@@ -8,10 +8,10 @@ if [ $# -ne 1 ]; then
 fi
 
 # Load RVM into a shell session *as a function*
-if [[ -s "$HOME/.rvm/scripts/rvm" ]] ; then
+if [ -s "$HOME/.rvm/scripts/rvm" ]; then
   # First try to load from a user install
   source "$HOME/.rvm/scripts/rvm"
-elif [[ -s "/usr/local/rvm/scripts/rvm" ]] ; then
+elif [ -s "/usr/local/rvm/scripts/rvm" ]; then
   # Then try to load from a root install
   source "/usr/local/rvm/scripts/rvm"
 else

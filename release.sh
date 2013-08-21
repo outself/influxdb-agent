@@ -41,7 +41,7 @@ fi
 
 current_branch=`git branch --no-color | grep '*' | cut -d' ' -f2`
 git tag v$version
-git push origin $current_branch
+git push origin
 git push origin --tags
 
 for filepath in package/*.{rpm,deb}; do
