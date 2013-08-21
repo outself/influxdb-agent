@@ -15,7 +15,8 @@ for host in `echo $hosts | tr ' ' '\n'`; do
     # ssh $host "sudo useradd -r errplane; echo $host | sudo tee /etc/hostname && sudo hostname $host"
     ssh $host "cd /tmp && rm errplane-agent*; wget https://s3.amazonaws.com/errplane-agent/errplane-agent_${version}_amd64.deb && \
     sudo dpkg -i /tmp/errplane-agent_${version}_amd64.deb && \
-    sudo -u errplane errplane-config-generator -api-key 962cdc9b-15e7-4b25-9a0d-24a45cfc6bc1 -app-key app4you2love -environment production && \
+    sudo -u errplane errplane-config-generator -api-key 962cdc9b-15e7-4b25-9a0d-24a45cfc6bc1 -app-key app4you2love -http-host w.staging.apiv3.errplane.com \
+    -udp-host udp.staging.apiv3.errplane.com -config-host c.staging.apiv3.errplane.com -environment production && \
     sudo service errplane-agent restart && \
     sudo service errplane-agent status"
 done
