@@ -1,7 +1,10 @@
 package main
 
 import (
+	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"os"
+	"path"
 	"testing"
 )
 
@@ -21,6 +24,25 @@ type FakeProcessState struct{ ExitCode int }
 func (self *FakeProcessState) ExitStatus() int { return self.ExitCode }
 
 /* Tests */
+
+func (self *AgentSuite) TestPluginInfoParsing(c *C) {
+	content := `version: 1.0
+output: nagios
+needs-dependencies: false
+calculate-rates:
+  - "queries"
+  - "com_.*"
+  - "handler_.*"
+  - "qcache_.*"
+  - "table_locks_.*"
+`
+	dir := path.Join(os.TempDir(), "foobar")
+	c.Assert(os.MkdirAll(dir, 0755), IsNil)
+	c.Assert(ioutil.WriteFile(path.Join(dir, "info.yml"), []byte(content), 0644), IsNil)
+	plugin, err := parsePluginInfo(dir)
+	c.Assert(err, IsNil)
+	c.Assert(plugin.CalculateRates, HasLen, 5)
+}
 
 func (self *AgentSuite) TestNagiosOutputParsing(c *C) {
 	msg := "Warning: process not responding"

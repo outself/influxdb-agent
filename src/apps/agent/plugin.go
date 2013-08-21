@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/errplane/errplane-go"
+	"github.com/pmylund/go-cache"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -56,13 +58,15 @@ const (
 var (
 	DEFAULT_INSTANCE  = &Instance{"default", nil, nil}
 	DEFAULT_INSTANCES = []*Instance{&Instance{"", nil, nil}}
+	OutputCache       = cache.New(0, 0)
 )
 
 type PluginOutput struct {
-	state   PluginStateOutput
-	msg     string
-	points  []*errplane.JsonPoints
-	metrics map[string]float64
+	state     PluginStateOutput
+	msg       string
+	points    []*errplane.JsonPoints
+	metrics   map[string]float64
+	timestamp time.Time
 }
 
 // handles running plugins
@@ -152,7 +156,7 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 
 		log.Debug("parsed output is %#v", output)
 
-		// status are printed to plugins.<plugin-nam>.status with a value of 1 and dimension status that is either ok, warning, critical or unknown
+		// status are printed to plugins.<plugin-name>.status with a value of 1 and dimension status that is either ok, warning, critical or unknown
 		// other metrics are written to plugins.<plugin-name>.<metric-name> with the given value
 		// all metrics have the host name as a dimension
 
@@ -167,10 +171,26 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 
 		report(ep, fmt.Sprintf("plugins.%s.status", plugin.Name), 1.0, time.Now(), dimensions, nil)
 
+		// create a map from metric name to current value
+		currentValues := make(map[string]float64)
+		log.Debug("Calculating the rates for plugin %s %v", plugin.Name, plugin.CalculateRates)
+
+		// process the errplane output
 		if output.points != nil {
 			// add the plugins.<plugin-name>.<instance-name> to the metric names
 			// if the instance name isn't empty add it to the dimensions
 			for _, write := range output.points {
+				for _, metric := range plugin.CalculateRates {
+					ok, err := regexp.MatchString(metric, write.Name)
+					if err != nil {
+						log.Error("Invalid regex %s. Error: %s", metric, err)
+						continue
+					}
+					if ok && len(write.Points) > 0 {
+						currentValues[write.Name] = write.Points[0].Value
+					}
+				}
+
 				write.Name = fmt.Sprintf("plugins.%s.%s", plugin.Name, write.Name)
 				if instance.Name != "" {
 					for _, point := range write.Points {
@@ -182,14 +202,50 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 			ep.SendHttp(&errplane.WriteOperation{Writes: output.points})
 		}
 
+		// process nagios output
 		if output.metrics != nil {
 			dimensions := errplane.Dimensions{"host": AgentConfig.Hostname}
 			if instance.Name != "" {
 				dimensions["instance"] = instance.Name
 			}
 			for name, value := range output.metrics {
+				for _, metric := range plugin.CalculateRates {
+					ok, err := regexp.MatchString(metric, name)
+					if err != nil {
+						log.Error("Invalid regex %s. Error: %s", metric, err)
+						continue
+					}
+					if ok {
+						currentValues[name] = value
+					}
+
+				}
 				report(ep, fmt.Sprintf("plugins.%s.%s", plugin.Name, name), value, time.Now(), dimensions, nil)
 			}
+		}
+
+		log.Debug("Current values: %v", currentValues)
+
+		// calculate the rate of change
+		cacheKey := fmt.Sprintf("%s/%s", plugin.Name, instance.Name)
+		_previousOutput, ok := OutputCache.Get(cacheKey)
+		defer OutputCache.Set(cacheKey, output, -1)
+		log.Debug("Previous output for %s is %v", plugin.Name, _previousOutput)
+		if !ok {
+			return
+		}
+
+		previousOutput := _previousOutput.(*PluginOutput)
+		timeDiff := output.timestamp.Sub(previousOutput.timestamp).Seconds()
+		for name, value := range previousOutput.metrics {
+			currentValue, ok := currentValues[name]
+			if !ok {
+				continue
+			}
+
+			diff := currentValue - value
+			diff = diff / timeDiff
+			report(ep, fmt.Sprintf("plugins.%s.%s.rate", plugin.Name, name), diff, time.Now(), dimensions, nil)
 		}
 	}
 }
@@ -219,7 +275,7 @@ func parseErrplaneOutput(cmdState ProcessState, firstLine string) (*PluginOutput
 		return nil, err
 	}
 
-	return &PluginOutput{PluginStateOutput(exitStatus), status, writes, nil}, nil
+	return &PluginOutput{PluginStateOutput(exitStatus), status, writes, nil, time.Now()}, nil
 }
 
 func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, error) {
@@ -236,7 +292,7 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 	status := strings.TrimSpace(statusAndMetrics[0])
 
 	if len(statusAndMetrics) == 1 {
-		return &PluginOutput{PluginStateOutput(exitStatus), status, nil, nil}, nil
+		return &PluginOutput{PluginStateOutput(exitStatus), status, nil, nil, time.Now()}, nil
 	}
 
 	metricsLine := strings.TrimSpace(statusAndMetrics[1])
@@ -345,7 +401,7 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 		}
 	}
 
-	return &PluginOutput{PluginStateOutput(exitStatus), status, nil, metricsMap}, nil
+	return &PluginOutput{PluginStateOutput(exitStatus), status, nil, metricsMap, time.Now()}, nil
 }
 
 func killPlugin(cmdPath string, cmd *exec.Cmd, ch chan error) {
