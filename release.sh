@@ -44,9 +44,7 @@ git tag v$version
 git push origin
 git push origin --tags
 
-ls *
-ls package/*
-for filepath in package/*.{rpm,deb}; do
+for filepath in `ls package/*`; do
     [ -e "$filepath" ] || continue
     echo "Uploading $filepath to S3"
     filename=`basename $filepath`
