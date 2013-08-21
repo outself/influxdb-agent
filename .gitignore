@@ -3,8 +3,11 @@ pkg/
 TAGS
 flymake.sh
 refresh_tags.sh
-out_rpm/
 test_config.yml
+
+# packaging directories
+out_rpm/
+package/
 
 # external dependencies
 src/github.com/errplane/errplane-go/
