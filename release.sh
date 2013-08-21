@@ -50,3 +50,4 @@ for filepath in `ls package/*`; do
     filename=`basename $filepath`
     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --acl public-read
 done
+./deploy.sh $version
