@@ -7,10 +7,15 @@ import (
 )
 
 func main() {
-	apiKey := flag.String("api-key", "", "The api key from (Settings/Orginzation)")
-	appKey := flag.String("app-key", "", "The application key from (Settings/Applications)")
-	env := flag.String("environment", "", "The environment from (Settings/Applications)")
-	path := flag.String("path", "/etc/errplane-agent/config.yml", "The path to the generated config file")
+	var (
+		apiKey     = flag.String("api-key", "", "The api key from (Settings/Orginzation)")
+		appKey     = flag.String("app-key", "", "The application key from (Settings/Applications)")
+		env        = flag.String("environment", "", "The environment from (Settings/Applications)")
+		udpHost    = flag.String("udp-host", "udp.apiv3.errplane.com", "The path to the generated config file")
+		httpHost   = flag.String("http-host", "w.apiv3.errplane.com", "The path to the generated config file")
+		configHost = flag.String("config-host", "c.apiv3.errplane.com", "The path to the generated config file")
+		path       = flag.String("path", "/etc/errplane-agent/config.yml", "The path to the generated config file")
+	)
 
 	flag.Parse()
 
@@ -32,8 +37,8 @@ func main() {
 ##   Errplane agent configuration  ##
 #####################################
 
-udp-host: udp.apiv3.errplane.com:8126
-http-host: w.apiv3.errplane.com
+udp-host: %s
+http-host: %s
 
 api-key:     %s # your api key (Settings/Organization)
 app-key:     %s # your app key (Settings/Applications)
@@ -55,7 +60,7 @@ log-level: debug                              # debug, info, warn, error
 top-n-processes: 5                            # For processes stats the agent will report the top n processes (by memory and cpu usage)
 top-n-sleep:     1m                           # Sampling frequency of the top n processes
 monitored-sleep: 10s                          # Sampling frequency of the monitored processes
-config-service:  c.apiv3.errplane.com         # the location of the configuration service
+config-service:  %s											      # the location of the configuration service
 
 # processes:
 #   - name:   mysqld
@@ -73,7 +78,7 @@ config-service:  c.apiv3.errplane.com         # the location of the configuratio
 #         port: 6379    # call the plugin with --port 6379
 `
 
-	content := fmt.Sprintf(sample, *apiKey, *appKey, *env)
+	content := fmt.Sprintf(sample, *udpHost, *httpHost, *apiKey, *appKey, *env, *configHost)
 	file, err := os.Create(*path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot open %s. Error: %s\n", *path, err)
