@@ -18,3 +18,4 @@ go get $build_args github.com/errplane/errplane-go \
 
 go build apps/agent
 go build apps/config-generator
+go build apps/sudoers-generator
