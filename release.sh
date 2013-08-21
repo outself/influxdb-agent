@@ -10,7 +10,18 @@ if [ $modified -ne 0 ]; then
 fi
 
 if [ $# -ne 1 ]; then
-    echo "Usage: $0 <version.number>"
+    current_version=`git tag | sort -V | tail -n1`
+    current_version=${current_version#v}
+    version=`echo $current_version | awk 'BEGIN {FS="."}; {print $1 "." $2 "." ++$3}'`
+else
+    version=$1
+fi
+
+echo -n "Releas version $version ? [Y/n] "
+read response
+response=`echo $response | tr 'A-Z' 'a-z'`
+if [ "x$response" == "xn" ]; then
+    echo "Aborting"
     exit 1
 fi
 
@@ -19,7 +30,6 @@ if ! which aws > /dev/null 2>&1; then
     exit 1
 fi
 
-version=$1
 if ! ./package.sh $version; then
     echo "Build failed. Aborting the release"
     exit 1
