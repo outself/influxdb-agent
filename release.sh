@@ -17,7 +17,7 @@ else
     version=$1
 fi
 
-echo -n "Releas version $version ? [Y/n] "
+echo -n "Release version $version ? [Y/n] "
 read response
 response=`echo $response | tr 'A-Z' 'a-z'`
 if [ "x$response" == "xn" ]; then
