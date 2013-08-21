@@ -115,6 +115,10 @@ func monitorPlugins(ep *errplane.Errplane) {
 }
 
 func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata) {
+	args := instance.ArgsList
+	for name, value := range instance.Args {
+		args = append(args, "--"+name, value)
+	}
 	log.Debug("Running command %s %s", path.Join(plugin.Path, "status"), strings.Join(instance.ArgsList, " "))
 	cmdPath := path.Join(plugin.Path, "status")
 	cmd := exec.Command(cmdPath, instance.ArgsList...)
