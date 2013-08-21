@@ -27,6 +27,8 @@ if [ "x$assume_yes" != "xtrue" ]; then
     fi
 fi
 
+echo -n "Releasing version $version"
+
 if ! which aws > /dev/null 2>&1; then
     echo "Please install awscli see https://github.com/aws/aws-cli for more details"
     exit 1
@@ -37,14 +39,14 @@ if ! ./package.sh $version; then
     exit 1
 fi
 
-current_branch=`git branch --no-color | grep '*' | cut -d' ' -f2`
-git tag v$version
-git push origin $current_branch
-git push origin --tags
+# current_branch=`git branch --no-color | grep '*' | cut -d' ' -f2`
+# git tag v$version
+# git push origin $current_branch
+# git push origin --tags
 
-for filepath in package/*.{rpm,deb}; do
-    [ -e "$filepath" ] || continue
-    echo "Uploading $filepath to S3"
-    filename=`basename $filepath`
-    AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --acl public-read
-done
+# for filepath in package/*.{rpm,deb}; do
+#     [ -e "$filepath" ] || continue
+#     echo "Uploading $filepath to S3"
+#     filename=`basename $filepath`
+#     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --acl public-read
+# done
