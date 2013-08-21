@@ -27,7 +27,7 @@ if [ "x$assume_yes" != "xtrue" ]; then
     fi
 fi
 
-echo -n "Releasing version $version"
+echo "Releasing version $version"
 
 if ! which aws > /dev/null 2>&1; then
     echo "Please install awscli see https://github.com/aws/aws-cli for more details"
