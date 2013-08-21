@@ -119,9 +119,9 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 	for name, value := range instance.Args {
 		args = append(args, "--"+name, value)
 	}
-	log.Debug("Running command %s %s", path.Join(plugin.Path, "status"), strings.Join(instance.ArgsList, " "))
+	log.Debug("Running command %s %s", path.Join(plugin.Path, "status"), strings.Join(args, " "))
 	cmdPath := path.Join(plugin.Path, "status")
-	cmd := exec.Command(cmdPath, instance.ArgsList...)
+	cmd := exec.Command(cmdPath, args...)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
