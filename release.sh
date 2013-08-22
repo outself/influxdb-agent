@@ -40,6 +40,7 @@ if ! ./package.sh $version; then
 fi
 
 current_branch=`git branch --no-color | grep '*' | cut -d' ' -f2`
+latest_filename=${filename/$version/latest}
 git tag v$version
 git push origin
 git push origin --tags
@@ -49,5 +50,6 @@ for filepath in `ls package/*`; do
     echo "Uploading $filepath to S3"
     filename=`basename $filepath`
     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --acl public-read
+    AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key ${latest_filename} --body $filepath --acl public-read
 done
 ./deploy.sh $version
