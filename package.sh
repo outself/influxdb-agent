@@ -41,7 +41,7 @@ rm errplane-agent*.rpm
 rm errplane-agent*.deb
 
 # build the x86_64 version
-UPDATE=on ./build.sh -v $version
+UPDATE=on ./build.sh -v $version || exit 1
 cp agent $data_dir/
 cp scripts/agent_ctl $data_dir/
 cp config-generator $data_dir/
@@ -59,7 +59,7 @@ rm -rf out_rpm
 mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir $shared_dir
 
 # build the 32 bit version
-GOARCH=386 UPDATE=on ./build.sh -v $version
+GOARCH=386 UPDATE=on ./build.sh -v $version || exit 1
 cp agent $data_dir/
 cp scripts/agent_ctl $data_dir/
 cp config-generator $data_dir/
