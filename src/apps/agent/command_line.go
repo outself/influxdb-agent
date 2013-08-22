@@ -32,7 +32,7 @@ func startLocalServer() {
 	http.Handle("/", m)
 	c, err := net.Listen("tcp4", "localhost:")
 	if err != nil {
-		log.Error("Error while opening port for listening: ", err)
+		log.Error("Error while opening port for listening: %s", err)
 		return
 	}
 
