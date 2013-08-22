@@ -51,7 +51,7 @@ func checkNewPlugins() {
 		}
 
 		// update the agent information
-		SendPluginStatus(&AgentStatus{availablePlugins})
+		SendPluginStatus(&AgentStatus{availablePlugins, time.Now().Unix()})
 
 		time.Sleep(AgentConfig.Sleep)
 	}

@@ -22,7 +22,8 @@ type AgentConfiguration struct {
 }
 
 type AgentStatus struct {
-	Plugins []string `json:"plugins"`
+	Plugins   []string `json:"plugins"`
+	Timestamp int64    `json:"timestamp"`
 }
 
 var AgentInfo *AgentConfiguration
