@@ -11,6 +11,24 @@ curl -v -X POST 'http://c.apiv3.errplane.com/databases/app4you2lovestaging/agent
 }
 EOF
 
+curl -v -X POST 'http://c.staging.apiv3.errplane.com/databases/app4you2loveproduction/agent/app1/configuration?api_key=962cdc9b-15e7-4b25-9a0d-24a45cfc6bc1' --data @- <<EOF
+{
+ "processes": [
+   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*v2_series_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/v2_series_monitor/boot.rb production"},
+   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*http_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/http_monitor/boot.rb production"}
+ ]
+}
+EOF
+
+curl -v -X POST 'http://c.staging.apiv3.errplane.com/databases/app4you2loveproduction/agent/app2/configuration?api_key=962cdc9b-15e7-4b25-9a0d-24a45cfc6bc1' --data @- <<EOF
+{
+ "processes": [
+   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*v2_series_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/v2_series_monitor/boot.rb production"},
+   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*http_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/http_monitor/boot.rb production"}
+ ]
+}
+EOF
+
 # curl -v -X POST 'http://c.staging.apiv3.errplane.com/databases/app4you2loveproduction/agent/r1.apiv3/configuration?api_key=962cdc9b-15e7-4b25-9a0d-24a45cfc6bc1' --data @- <<EOF
 # {
 #   "processes":[{"name":"chronos_server","regex":".*chronos_server.*chronos_server_config.*json.*","status":"regex","start":"/mnt/data-collector/bin/start.sh chronos_server","user":"ubuntu"}]
