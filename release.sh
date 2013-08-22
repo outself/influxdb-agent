@@ -9,6 +9,8 @@ if [ $modified -ne 0 ]; then
     exit 1
 fi
 
+git fetch --tags                # get the latest tags
+
 if [ $# -ne 1 ]; then
     current_version=`git tag | sort -V | tail -n1`
     current_version=${current_version#v}
