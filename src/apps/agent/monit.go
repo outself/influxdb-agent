@@ -124,6 +124,7 @@ func processMatches(monitoredProcess *Process, process interface{}) bool {
 		return name == monitoredProcess.Name
 	} else if monitoredProcess.StatusCmd == "regex" {
 		fullCmd := strings.Join(args, " ")
+		log.Debug("Matching %s to %s", fullCmd, monitoredProcess.Regex)
 		matches, err := regexp.MatchString(monitoredProcess.Regex, fullCmd)
 		if err != nil {
 			log.Error("Cannot match regex. Error: %s", err)
