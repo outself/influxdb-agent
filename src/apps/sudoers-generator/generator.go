@@ -34,7 +34,7 @@ func main() {
 
 	if *appendMode {
 		_originalContent, err := ioutil.ReadFile(*output)
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "Cannot read from %s. Error: %s\nMay be you need to run this tool with sudo!", *output, err)
 			os.Exit(1)
 		}
