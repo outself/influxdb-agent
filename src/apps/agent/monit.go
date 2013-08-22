@@ -63,7 +63,7 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 			for _, monitoredProcess := range monitoredProcesses {
 				log.Debug("Checking process health %#v", monitoredProcess)
 
-				status := getProcessStatus(monitoredProcess, processes)
+				status := getProcessStatus(monitoredProcess, processesByPid)
 
 				if status != monitoredProcess.LastStatus {
 					if status == UP {
@@ -135,22 +135,17 @@ func processMatches(monitoredProcess *Process, process interface{}) bool {
 	return false
 }
 
-func findProcess(process *Process, processes ProcsByName) *ProcStat {
-	if process.StatusCmd == "name" {
-		return processes[process.Name]
-	} else if process.StatusCmd == "regex" {
-		for _, proc := range processes {
-			if processMatches(process, proc) {
-				return proc
-			}
+func findProcess(process *Process, processes ProcsByPid) *ProcStat {
+	for _, proc := range processes {
+		if processMatches(process, proc) {
+			return proc
 		}
-	} else {
-		log.Error("Unknown status command '%s' used. Assuming process down", process.StatusCmd)
 	}
+
 	return nil
 }
 
-func getProcessStatus(process *Process, currentProcessesSnapshot ProcsByName) Status {
+func getProcessStatus(process *Process, currentProcessesSnapshot ProcsByPid) Status {
 	if process := findProcess(process, currentProcessesSnapshot); process != nil {
 		return UP
 	}
@@ -159,20 +154,18 @@ func getProcessStatus(process *Process, currentProcessesSnapshot ProcsByName) St
 
 func reportProcessDown(ep *errplane.Errplane, process *Process) {
 	log.Info("Process %s went down", process.Name)
-	reportProcessEvent(ep, process.Name, "down")
+	reportProcessEvent(ep, process.Name, process.Regex, "down")
 }
 
 func runCmd(cmd, user string) error {
 	args := []string{"-u", user, "-n"}
 	args = append(args, strings.Fields(cmd)...)
-	log.Debug("Executing 'sudo %s'", cmd)
+	log.Info("Executing 'sudo -u %s -n %s'", user, cmd)
 	command := exec.Command("sudo", args...)
 	return command.Run()
 }
 
 func startProcess(process *Process) {
-	log.Info("Trying to start process %s", process.Name)
-
 	if process.StartCmd == "" {
 		log.Warn("No start command found for service %s", process.Name)
 	}
@@ -196,7 +189,7 @@ func stopProcess(process *Process) {
 }
 
 func killProcess(process *Process) {
-	processes, _ := getProcesses()
+	_, processes := getProcesses()
 	stat := findProcess(process, processes)
 	if stat == nil {
 		log.Warn("Cannot find process %s", process.Name)
@@ -217,18 +210,23 @@ func killProcess(process *Process) {
 
 func reportProcessUp(ep *errplane.Errplane, process *Process) {
 	log.Info("Process %s came back up reporting event", process.Name)
-	reportProcessEvent(ep, process.Name, "up")
+	reportProcessEvent(ep, process.Name, process.Regex, "up")
 }
 
-func reportProcessEvent(ep *errplane.Errplane, name, status string) {
+func reportProcessEvent(ep *errplane.Errplane, name, regex, status string) {
 	if _, ok := snoozedProcesses.Get(name); ok {
 		log.Debug("Not reporting %s event for '%s' since it is snoozed", status, name)
 		return
 	}
 
+	processName := name
+	if regex != "" {
+		processName = regex
+	}
+
 	ep.Report("server.process.monitoring", 1.0, time.Now(), "", errplane.Dimensions{
 		"host":    AgentConfig.Hostname,
-		"process": name,
+		"process": processName,
 		"status":  status,
 	})
 }
