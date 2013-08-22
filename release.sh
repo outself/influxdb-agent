@@ -48,7 +48,7 @@ for filepath in `ls package/*`; do
     [ -e "$filepath" ] || continue
     echo "Uploading $filepath to S3"
     filename=`basename $filepath`
-    latest_filename=`echo ${filename} | sed 's/${version}/latest/g'`
+    latest_filename=`echo ${filename} | sed "s/${version}/latest/g"`
     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --acl public-read
     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key ${latest_filename} --body $filepath --acl public-read
 done
