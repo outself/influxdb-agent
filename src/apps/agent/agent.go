@@ -10,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 	. "utils"
 )
@@ -149,9 +150,10 @@ func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName
 		return true
 	}
 	dimensions := errplane.Dimensions{
-		"pid":  strconv.Itoa(stat.pid),
-		"name": stat.name,
-		"host": AgentConfig.Hostname,
+		"pid":     strconv.Itoa(stat.pid),
+		"name":    stat.name,
+		"cmdline": strings.Join(stat.args, " "),
+		"host":    AgentConfig.Hostname,
 	}
 
 	if report(ep, metric, value, now, dimensions, ch) {
