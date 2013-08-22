@@ -5,8 +5,8 @@ curl -v -X POST 'http://c.apiv3.errplane.com/databases/app4you2lovestaging/agent
  "plugins":{"mysql":[]},
  "processes": [
    {"name": "mysqld", "status": "name", "start": "service mysql start"},
-   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*v2_series_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/http_monitor/boot.rb staging"},
-   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*http_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/v2_series_monitor/boot.rb staging"}
+   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*v2_series_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/v2_series_monitor/boot.rb staging"},
+   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*http_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/http_monitor/boot.rb staging"}
  ]
 }
 EOF
