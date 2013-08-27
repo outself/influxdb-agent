@@ -154,7 +154,7 @@ func getProcessStatus(process *Process, currentProcessesSnapshot ProcsByPid) Sta
 
 func reportProcessDown(ep *errplane.Errplane, process *Process) {
 	log.Info("Process %s went down", process.Name)
-	reportProcessEvent(ep, process.Name, process.Regex, "down")
+	reportProcessEvent(ep, process, process.Regex, "down")
 }
 
 func runCmd(cmd, user string) error {
@@ -210,23 +210,18 @@ func killProcess(process *Process) {
 
 func reportProcessUp(ep *errplane.Errplane, process *Process) {
 	log.Info("Process %s came back up reporting event", process.Name)
-	reportProcessEvent(ep, process.Name, process.Regex, "up")
+	reportProcessEvent(ep, process, process.Regex, "up")
 }
 
-func reportProcessEvent(ep *errplane.Errplane, name, regex, status string) {
-	if _, ok := snoozedProcesses.Get(name); ok {
-		log.Debug("Not reporting %s event for '%s' since it is snoozed", status, name)
+func reportProcessEvent(ep *errplane.Errplane, process *Process, regex, status string) {
+	if _, ok := snoozedProcesses.Get(process.Nickname); ok {
+		log.Debug("Not reporting %s event for '%s' since it is snoozed", status, process.Nickname)
 		return
 	}
 
-	processName := name
-	if regex != "" {
-		processName = regex
-	}
-
 	ep.Report("server.process.monitoring", 1.0, time.Now(), "", errplane.Dimensions{
-		"host":    AgentConfig.Hostname,
-		"process": processName,
-		"status":  status,
+		"host":     AgentConfig.Hostname,
+		"nickname": process.Nickname,
+		"status":   status,
 	})
 }
