@@ -158,6 +158,7 @@ func reportProcessMetric(ep *errplane.Errplane, monitoredProcess *Process, stat 
 	} else {
 		dimensions = errplane.Dimensions{
 			"pid":     strconv.Itoa(stat.pid),
+			"name":    stat.name,
 			"cmdline": strings.Join(stat.args, " "),
 			"host":    AgentConfig.Hostname,
 		}
