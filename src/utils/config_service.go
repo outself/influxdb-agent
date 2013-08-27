@@ -122,7 +122,7 @@ func GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
 
 	processesMap := make(map[string]*Process)
 	for _, process := range processes {
-		processesMap[process.Name] = process
+		processesMap[process.Nickname] = process
 	}
 
 	returnedProcesses := make([]*Process, 0)
@@ -133,10 +133,10 @@ func GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
 		}
 
 		if process.StartCmd == "" {
-			process.StartCmd = fmt.Sprintf("service %s start", process.Name)
+			process.StartCmd = fmt.Sprintf("service %s start", process.Nickname)
 		}
 
-		if p := processesMap[process.Name]; p != nil {
+		if p := processesMap[process.Nickname]; p != nil {
 			process.LastStatus = p.LastStatus
 		}
 		returnedProcesses = append(returnedProcesses, process)
