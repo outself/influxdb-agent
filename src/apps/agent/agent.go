@@ -103,14 +103,14 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 			topNByCpu := mergedStats[0:n]
 			now := time.Now()
 			for _, stat := range topNByCpu {
-				if reportProcessCpuUsage(ep, &stat, now, true, ch) {
+				if reportProcessCpuUsage(ep, nil, &stat, now, true, ch) {
 					return
 				}
 			}
 			sort.Sort(ProcStatsSortableByMem(mergedStats))
 			topNByMem := mergedStats[0:n]
 			for _, stat := range topNByMem {
-				if reportProcessMemUsage(ep, &stat, now, true, ch) {
+				if reportProcessMemUsage(ep, nil, &stat, now, true, ch) {
 					return
 				}
 			}
@@ -121,15 +121,15 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 	}
 }
 
-func reportProcessCpuUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
-	return reportProcessMetric(ep, stat, "cpu", now, top, ch)
+func reportProcessCpuUsage(ep *errplane.Errplane, monitoredProcess *Process, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
+	return reportProcessMetric(ep, monitoredProcess, stat, "cpu", now, top, ch)
 }
 
-func reportProcessMemUsage(ep *errplane.Errplane, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
-	return reportProcessMetric(ep, stat, "mem", now, top, ch)
+func reportProcessMemUsage(ep *errplane.Errplane, monitoredProcess *Process, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
+	return reportProcessMetric(ep, monitoredProcess, stat, "mem", now, top, ch)
 }
 
-func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName string, now time.Time, top bool, ch chan error) bool {
+func reportProcessMetric(ep *errplane.Errplane, monitoredProcess *Process, stat *MergedProcStat, metricName string, now time.Time, top bool, ch chan error) bool {
 	var value float64
 	var metric string
 
@@ -149,11 +149,18 @@ func reportProcessMetric(ep *errplane.Errplane, stat *MergedProcStat, metricName
 		log.Error("unknown metric name %s", metricName)
 		return true
 	}
-	dimensions := errplane.Dimensions{
-		"pid":     strconv.Itoa(stat.pid),
-		"name":    stat.name,
-		"cmdline": strings.Join(stat.args, " "),
-		"host":    AgentConfig.Hostname,
+	var dimensions errplane.Dimensions
+	if monitoredProcess != nil {
+		dimensions = errplane.Dimensions{
+			"nickname": monitoredProcess.Nickname,
+			"host":     AgentConfig.Hostname,
+		}
+	} else {
+		dimensions = errplane.Dimensions{
+			"pid":     strconv.Itoa(stat.pid),
+			"cmdline": strings.Join(stat.args, " "),
+			"host":    AgentConfig.Hostname,
+		}
 	}
 
 	if report(ep, metric, value, now, dimensions, ch) {

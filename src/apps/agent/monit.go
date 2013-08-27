@@ -91,8 +91,8 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 				for _, monitoredProcess := range monitoredProcesses {
 					if processMatches(monitoredProcess, stat) {
 						i += 1
-						reportProcessCpuUsage(ep, &stat, now, false, ch)
-						reportProcessMemUsage(ep, &stat, now, false, ch)
+						reportProcessCpuUsage(ep, monitoredProcess, &stat, now, false, ch)
+						reportProcessMemUsage(ep, monitoredProcess, &stat, now, false, ch)
 					}
 				}
 			}

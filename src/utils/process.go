@@ -15,4 +15,5 @@ type Process struct {
 	StatusCmd  string `json:"status"`
 	User       string `json:"user"`
 	LastStatus Status `json:"-"`
+	Nickname   string `json:"nickname"`
 }
