@@ -6,12 +6,20 @@ hosts="r1.apiv3 r2.apiv3 r3.apiv3 w1.apiv3 w2.apiv3 udp.apiv3 web1.apiv3 web2.ap
 
 for host in `echo $hosts | tr ' ' '\n'`; do
     echo "deploying to $host"
+
+    staging=".staging"
+    env="production"
+    if [ $host = staging.apiv3 ]; then
+        staging=""
+        env="staging"
+    fi
+
     # scp $file $host:/tmp
     # ssh $host "sudo useradd -r errplane; echo $host | sudo tee /etc/hostname && sudo hostname $host"
     ssh $host "cd /tmp && rm errplane-agent*; wget https://s3.amazonaws.com/errplane-agent/errplane-agent_${version}_amd64.deb && \
     sudo dpkg -i /tmp/errplane-agent_${version}_amd64.deb ; \
-    sudo -u errplane errplane-config-generator -api-key 962cdc9b-15e7-4b25-9a0d-24a45cfc6bc1 -app-key app4you2love -http-host w.staging.apiv3.errplane.com \
-    -udp-host udp.staging.apiv3.errplane.com -config-host c.staging.apiv3.errplane.com -environment production; \
+    sudo -u errplane errplane-config-generator -api-key ignored -app-key app4you2love -http-host w$staging.apiv3.errplane.com \
+    -udp-host udp$staging.apiv3.errplane.com -config-host c$staging.apiv3.errplane.com -environment $env; \
     sudo pkill errplane-agent; \
     sudo service errplane-agent restart; \
     sudo service errplane-agent status"
