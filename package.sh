@@ -24,11 +24,12 @@ version=$1
 data_dir=out_rpm/data/errplane-agent/versions/$version/
 config_dir=out_rpm/etc/errplane-agent
 initd_dir=out_rpm/etc/init.d/
-plugins_dir=out_rpm/data/errplane-agent/plugins
 shared_dir=out_rpm/data/errplane-agent/shared
+plugins_dir=$shared_dir/plugins
+custom_plugins_dir=$shared_dir/custom-plugins
 
 rm -rf out_rpm
-mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir $shared_dir
+mkdir -p $data_dir $initd_dir $config_dir $log_dir $shared_dir $plugins_dir $custom_plugins_dir
 rm -rf package
 mkdir package
 

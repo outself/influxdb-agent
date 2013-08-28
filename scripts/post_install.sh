@@ -2,6 +2,10 @@
 
 echo "Linking new version"
 
+if [ -d /data/errplane-agent/plugins ]; then
+    mv /data/errplane-agent/plugins/* /data/errplane-agent/shared/plugins/
+    rmdir /data/errplane-agent/plugins/
+fi
 ln -sfn /data/errplane-agent/versions/REPLACE_VERSION /data/errplane-agent/current
 ln -sfn /data/errplane-agent/current/agent /usr/bin/errplane-agent
 ln -sfn /data/errplane-agent/current/agent_ctl /usr/bin/errplane-agent_ctl
