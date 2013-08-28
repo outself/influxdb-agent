@@ -17,7 +17,7 @@ name=errplane-agent
 daemon=/usr/bin/$name
 
 # pid file for the daemon
-pidfile=/var/run/errplane-agent.pid
+pidfile=/data/errplane-agent/shared/errplane-agent.pid
 
 # If the daemon is not there, then exit.
 [ -x $daemon ] || exit 5
@@ -26,33 +26,47 @@ case $1 in
     start)
         # Checked the PID file exists and check the actual status of process
         if [ -e $pidfile ]; then
-            status_of_proc -p $pidfile $daemon "$name process" && status="0" || status="$?"
+            pidofproc -p $pidfile $daemon > /dev/null 2>&1 && status="0" || status="$?"
             # If the status is SUCCESS then don't need to start again.
-            if [ $status = "0" ]; then
-                exit # Exit
+            if [ "x$status" = "x0" ]; then
+                log_failure_msg "$name process is running"
+                exit 1 # Exit
             fi
         fi
         # Start the daemon.
-        log_daemon_msg "Starting the process" "$name"
+        log_success_msg "Starting the process" "$name"
         # Start the daemon with the help of start-stop-daemon
         # Log the message appropriately
-        if start-stop-daemon -m -c errplane:errplane -d / -b --start --quiet --oknodo --pidfile $pidfile --exec $daemon ; then
-            log_end_msg 0
+        status="1"
+        if which start-stop-daemon > /dev/null 2>&1; then
+            if start-stop-daemon -c errplane:errplane -d / -b --start --quiet --oknodo --exec $daemon; then
+                status="0"
+            fi
         else
-            log_end_msg 1
+            cd /
+            if start_daemon -u errplane ${daemon}-daemon; then
+                status="0"
+            fi
+        fi
+        if [ "x$status" = "x0" ] ; then
+            log_success_msg "Errplane agent started"
+        else
+            log_failure_msg "Could not start the agent"
         fi
         ;;
     stop)
         # Stop the daemon.
         if [ -e $pidfile ]; then
-            status_of_proc -p $pidfile $daemon "Stoppping the $name process" && status="0" || status="$?"
+            pidofproc -p $pidfile $daemon > /dev/null 2>&1 && status="0" || status="$?"
             if [ "$status" = 0 ]; then
-                start-stop-daemon --stop --quiet --oknodo --pidfile $pidfile
-                /bin/rm -rf $pidfile
+                if killproc -p $pidfile SIGTERM && /bin/rm -rf $pidfile; then
+                    log_success_msg "$name process was stopped"
+                else
+                    log_failure_msg "$name failed to stop service"
+                fi
             fi
         else
-            log_daemon_msg "$name process is not running"
-            log_end_msg 0
+            log_failure_msg "$name process is not running"
         fi
         ;;
     restart)
@@ -62,16 +76,21 @@ case $1 in
     status)
         # Check the status of the process.
         if [ -e $pidfile ]; then
-            status_of_proc -p $pidfile $daemon "$name process" && exit 0 || exit $?
+            if pidofproc -p $pidfile $daemon > /dev/null; then
+                log_success_msg "$name Process is running"
+                exit 0
+            else
+                log_failure_msg "$name Process is not running"
+                exit 1
+            fi
         else
-            log_daemon_msg "$name Process is not running"
-            log_end_msg 0
+            log_failure_msg "$name Process is not running"
         fi
         ;;
     # reload)
     #     # Reload the process. Basically sending some signal to a daemon to reload its configurations.
     #     if [ -e $pidfile ]; then
-    #         start-stop-daemon --stop --signal SIGHUP --quiet --pidfile $pidfile --name $name
+    #         start-stop-daemon --stop --signal SIGHUSR2 --quiet --pidfile $pidfile --name $name
     #         log_success_msg "$name process reloaded successfully"
     #     else
     #         log_failure_msg "$pidfile does not exists"

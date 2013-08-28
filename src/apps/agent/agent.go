@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/errplane/errplane-go"
 	"github.com/errplane/gosigar"
+	"io/ioutil"
 	"math"
 	"os"
 	"sort"
@@ -19,6 +20,9 @@ func main() {
 	configFile := flag.String("config", "/etc/errplane-agent/config.yml", "The agent config file")
 	flag.Parse()
 
+	pidFile := flag.String("pidfile", "/data/errplane-agent/shared/errplane-agent.pid", "The agent pid file")
+	flag.Parse()
+
 	err := InitConfig(*configFile)
 	if err != nil {
 		fmt.Printf("Error while reading configuration. Error: %s", err)
@@ -29,6 +33,15 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error while reading configuration. Error: %s", err)
 		os.Exit(1)
+	}
+
+	if *pidFile == "" {
+		fmt.Printf("Pidfile is a required argument and cannot be empty")
+	}
+	pid := os.Getpid()
+	err = ioutil.WriteFile(*pidFile, []byte(strconv.Itoa(pid)), 0644)
+	if err != nil {
+		fmt.Printf("Error while writing to file %s. Error: %s", *pidFile, err)
 	}
 
 	ep := errplane.New(AgentConfig.AppKey, AgentConfig.Environment, AgentConfig.ApiKey)

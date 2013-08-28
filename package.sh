@@ -40,14 +40,19 @@ sed -i "s/REPLACE_VERSION/${version}/g" /tmp/post_install.sh
 rm errplane-agent*.rpm
 rm errplane-agent*.deb
 
+function copy_files {
+    cp agent $data_dir/
+    cp scripts/errplane-agent-daemon $data_dir/
+    cp scripts/agent_ctl $data_dir/
+    cp config-generator $data_dir/
+    cp sudoers-generator $data_dir/
+    cp opensource.md $data_dir/
+    cp scripts/init.d.sh $initd_dir/errplane-agent
+}
+
 # build the x86_64 version
 UPDATE=on ./build.sh -v $version || exit 1
-cp agent $data_dir/
-cp scripts/agent_ctl $data_dir/
-cp config-generator $data_dir/
-cp sudoers-generator $data_dir/
-cp opensource.md $data_dir/
-cp scripts/init.d.sh $initd_dir/errplane-agent
+copy_files
 pushd out_rpm
 fpm  -s dir -t rpm --rpm-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 mv *.rpm ../package/
@@ -60,12 +65,7 @@ mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir $shared_dir
 
 # build the 32 bit version
 GOARCH=386 UPDATE=on ./build.sh -v $version || exit 1
-cp agent $data_dir/
-cp scripts/agent_ctl $data_dir/
-cp config-generator $data_dir/
-cp sudoers-generator $data_dir/
-cp opensource.md $data_dir/
-cp scripts/init.d.sh $initd_dir/errplane-agent
+copy_files
 pushd out_rpm
 setarch i386 fpm -s dir -t rpm --rpm-user errplane --rpm-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 mv *.rpm ../package/
