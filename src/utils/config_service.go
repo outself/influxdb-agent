@@ -13,8 +13,22 @@ import (
 )
 
 const (
-	PLUGINS_DIR = "/data/errplane-agent/plugins"
+	PLUGINS_DIR        = "/data/errplane-agent/shared/plugins"
+	CUSTOM_PLUGINS_DIR = "/data/errplane-agent/shared/custom-plugins"
 )
+
+type PluginInformation struct {
+	BasicStats []struct {
+		Name   string `json:"name"`
+		Metric string `json:"metric"`
+		Units  string `json:"units"`
+	} `yaml:"basic-stats" json:"stats,omitempty"`
+	Arguments []struct {
+		Name         string `json:"name"`
+		Description  string `json:"description"`
+		DefaultValue string `yaml:"default_value" json:"default"`
+	} `yaml:"arguments" json:"arguments,omitempty"`
+}
 
 type AgentConfiguration struct {
 	Plugins   map[string][]*Instance `json:"plugins"`
@@ -40,6 +54,26 @@ func configServerUrl(path string, args ...interface{}) string {
 	}
 
 	return fmt.Sprintf("http://%s%s%s", AgentConfig.ConfigService, separator, path)
+}
+
+func SendCustomPlugins(plugins map[string]*PluginInformation) error {
+	data, err := json.Marshal(plugins)
+	if err != nil {
+		log.Error("Cannot marshal data to json")
+		return err
+	}
+	database := AgentConfig.Database()
+	hostname := AgentConfig.Hostname
+	apiKey := AgentConfig.ApiKey
+	url := configServerUrl("/databases/%s/agent/%s/custom-plugins?api_key=%s", database, hostname, apiKey)
+	log.Debug("posting to '%s' -- %s", url, data)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		log.Error("Cannot post agent information to '%s'. Error: %s", url, err)
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
 
 func SendPluginStatus(status *AgentStatus) {

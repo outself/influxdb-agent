@@ -74,10 +74,53 @@ func getAvailablePlugins() map[string]*PluginMetadata {
 	}
 
 	pluginsDir := path.Join(PLUGINS_DIR, string(latestVersion))
-	infos, err := ioutil.ReadDir(pluginsDir)
+	plugins, err := getPluginsInfo(pluginsDir)
 	if err != nil {
 		log.Error("Cannot list directory '%s'. Error: %s", pluginsDir, err)
 		return nil
+	}
+	customPlugins, err := getPluginsInfo(CUSTOM_PLUGINS_DIR)
+	if err != nil {
+		log.Error("Cannot list directory '%s'. Error: %s", CUSTOM_PLUGINS_DIR, err)
+		return nil
+	}
+
+	// report these plugins to the config api to be shown to the user on the UI
+	if len(customPlugins) > 0 {
+		customPluginsInfo := make(map[string]*PluginInformation)
+		for name, plugin := range customPlugins {
+			infoFile := path.Join(plugin.Path, "info.yml")
+			infoContent, err := ioutil.ReadFile(infoFile)
+			if err != nil {
+				log.Error("Cannot read %s. Error: %s", infoFile, err)
+				continue
+			}
+			info := &PluginInformation{}
+			err = goyaml.Unmarshal(infoContent, info)
+			if err != nil {
+				log.Error("Cannot parse %s. Error: %s", infoContent, err)
+				continue
+			}
+			customPluginsInfo[name] = info
+		}
+
+		if err := SendCustomPlugins(customPluginsInfo); err != nil {
+			log.Error("Cannot send custom plugins information. Error: %s", err)
+		}
+	}
+
+	// custom plugins take precendence
+	for name, info := range customPlugins {
+		info.IsCustom = true
+		plugins[name] = info
+	}
+	return plugins
+}
+
+func getPluginsInfo(dir string) (map[string]*PluginMetadata, error) {
+	infos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
 	}
 
 	plugins := make(map[string]*PluginMetadata)
@@ -88,7 +131,7 @@ func getAvailablePlugins() map[string]*PluginMetadata {
 		}
 
 		dirname := info.Name()
-		pluginDir := path.Join(pluginsDir, dirname)
+		pluginDir := path.Join(dir, dirname)
 		plugin, err := parsePluginInfo(pluginDir)
 		if err != nil {
 			log.Error("Cannot parse directory '%s'. Error: %s", dirname, err)
@@ -97,7 +140,7 @@ func getAvailablePlugins() map[string]*PluginMetadata {
 		plugins[plugin.Name] = plugin
 		plugin.Path = pluginDir
 	}
-	return plugins
+	return plugins, nil
 }
 
 func parsePluginInfo(dirname string) (*PluginMetadata, error) {

@@ -72,7 +72,7 @@ type PluginOutput struct {
 // handles running plugins
 func monitorPlugins(ep *errplane.Errplane) {
 	var previousConfig *AgentConfiguration
-	var version string
+	var plugins map[string]*PluginMetadata
 
 	for {
 		config, err := GetPluginsToRun()
@@ -87,16 +87,12 @@ func monitorPlugins(ep *errplane.Errplane) {
 		log.Debug("Iterating through %d plugins", len(config.Plugins))
 
 		// get the list of plugins that should be turned from the config service
-		version, err = GetCurrentPluginsVersion()
-		if err != nil {
-			log.Error("Cannot read current plugins version")
-			goto sleep
-		}
+		plugins = getAvailablePlugins()
 
 		for name, instances := range config.Plugins {
-			plugin, err := parsePluginInfo(path.Join(PLUGINS_DIR, version, name))
-			if err != nil {
-				log.Error("Cannot get scripts and info for plugin '%s'. Error: %s", name, err)
+			plugin, ok := plugins[name]
+			if !ok {
+				log.Error("Cannot find plugin '%s'. Error: %s", name, err)
 				continue
 			}
 

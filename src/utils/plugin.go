@@ -12,6 +12,7 @@ type PluginMetadata struct {
 	Output          string
 	HasDependencies bool     `yaml:"needs-dependencies"`
 	Path            string   `yaml:"-"`
+	IsCustom        bool     `yaml:"-"`
 	CalculateRates  []string `yaml:"calculate-rates"`
 }
 
