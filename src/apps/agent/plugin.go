@@ -36,13 +36,13 @@ func (self *ProcessStateWrapper) ExitStatus() int {
 func (p *PluginStateOutput) String() string {
 	switch *p {
 	case OK:
-		return "Ok"
+		return "ok"
 	case WARNING:
-		return "Warning"
+		return "warning"
 	case CRITICAL:
-		return "Critical"
+		return "critical"
 	case UNKNOWN:
-		return "Unknown"
+		return "unknown"
 	default:
 		panic(fmt.Errorf("WTF unknown state %d", *p))
 	}
