@@ -47,7 +47,7 @@ func main() {
 
 	monitoredProcesses, err := GetMonitoredProcesses(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot get the list of monitored processes")
+		fmt.Fprintf(os.Stderr, "Cannot get the list of monitored processes\n")
 		os.Exit(1)
 	}
 
