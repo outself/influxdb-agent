@@ -47,7 +47,7 @@ func convertToInternalWriteOperation(operation *common.WriteOperation) *errplane
 	}
 }
 
-func handler(ep *errplane.Errplane) aggregator.Handler {
+func handler(ep *errplane.Errplane) aggregator.WriteOperationHandler {
 	return func(operation *common.WriteOperation) {
 		if err := ep.SendHttp(convertToInternalWriteOperation(operation)); err != nil {
 			log.Error("Cannot send data to the Errplane. Error: %s", err)
