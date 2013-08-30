@@ -14,7 +14,8 @@ go get $build_args github.com/errplane/errplane-go \
     launchpad.net/goyaml \
     code.google.com/p/log4go \
     github.com/bmizerany/pat \
-	  github.com/pmylund/go-cache
+	  github.com/pmylund/go-cache \
+    github.com/howeyc/fsnotify
 
 go build apps/agent
 go build apps/config-generator

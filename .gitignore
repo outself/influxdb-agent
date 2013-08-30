@@ -18,6 +18,7 @@ src/launchpad.net/gocheck
 src/code.google.com/p/log4go
 src/github.com/bmizerany/pat/
 src/github.com/pmylund/go-cache/
+src/github.com/howeyc/fsnotify/
 
 # binaries
 /config-generator
