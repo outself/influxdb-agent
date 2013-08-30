@@ -25,3 +25,4 @@ src/github.com/howeyc/fsnotify/
 /agent
 /sudoers-generator
 /*.test
+agent.test

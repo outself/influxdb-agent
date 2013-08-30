@@ -5,6 +5,7 @@ import (
 	log "code.google.com/p/log4go"
 	"encoding/json"
 	"fmt"
+	"github.com/errplane/errplane-go-common/monitoring"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -93,6 +94,32 @@ func SendPluginStatus(status *AgentStatus) {
 		return
 	}
 	resp.Body.Close()
+}
+
+func GetMonitoringConfig() (*monitoring.MonitorConfig, error) {
+	database := AgentConfig.Database()
+	hostname := AgentConfig.Hostname
+	apiKey := AgentConfig.ApiKey
+
+	if AgentConfig.Hostname == "" {
+		return nil, fmt.Errorf("Configuration service hostname not configured properly")
+	}
+
+	url := configServerUrl("/databases/%s/agent/%s/monitoring-configuration?api_key=%s", database, hostname, apiKey)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Received status code %d", resp.StatusCode)
+	}
+	log.Debug("Received: %s", string(body))
+	return monitoring.ParseMonitorConfig(string(body), false)
 }
 
 func GetInstalledPluginsVersion() (string, error) {

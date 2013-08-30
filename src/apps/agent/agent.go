@@ -62,6 +62,8 @@ func main() {
 	go checkNewPlugins()
 	go startUdpListener(ep)
 	go startLocalServer()
+	detector := NewAnomaliesDetector(ep)
+	go watchLogFile(detector)
 	log.Info("Agent started successfully")
 	err = <-ch
 	log.Error("Data collection stopped unexpectedly. Error: %s", err)
