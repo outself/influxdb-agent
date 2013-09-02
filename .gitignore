@@ -19,6 +19,8 @@ src/code.google.com/p/log4go
 src/github.com/bmizerany/pat/
 src/github.com/pmylund/go-cache/
 src/github.com/howeyc/fsnotify/
+src/code.google.com/p/
+src/github.com/nsf/gocode/
 
 # binaries
 /config-generator
@@ -26,3 +28,5 @@ src/github.com/howeyc/fsnotify/
 /sudoers-generator
 /*.test
 agent.test
+bin/gocode
+bin/godef

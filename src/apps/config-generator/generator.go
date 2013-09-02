@@ -10,7 +10,7 @@ func main() {
 	var (
 		apiKey     = flag.String("api-key", "", "The api key from (Settings/Orginzation)")
 		appKey     = flag.String("app-key", "", "The application key from (Settings/Applications)")
-		env        = flag.String("environment", "", "The environment from (Settings/Applications)")
+		env        = flag.String("environment", "production", "The environment from (Settings/Applications)")
 		udpHost    = flag.String("udp-host", "udp.apiv3.errplane.com", "The path to the generated config file")
 		httpHost   = flag.String("http-host", "w.apiv3.errplane.com", "The path to the generated config file")
 		configHost = flag.String("config-host", "c.apiv3.errplane.com", "The path to the generated config file")
