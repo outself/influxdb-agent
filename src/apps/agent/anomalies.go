@@ -106,9 +106,15 @@ func (self *AnomaliesDetector) ReportMetricEvent(metricName string, value float6
 			}
 
 			metricEvents := _metricEvents.(*MetricEvents)
+			metricEvents.events = append(metricEvents.events, &Event{time.Now()})
 
 			if len(metricEvents.events) > 0 && time.Now().Sub(metricEvents.events[0].timestamp) > condition.OnlyAfter {
-				// TODO: send an alert
+				self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+					"StatName":       monitor.StatName,
+					"AlertWhen":      condition.AlertWhen.String(),
+					"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
+					"OnlyAfter":      condition.OnlyAfter.String(),
+				})
 			}
 
 			// remove all events that are older than "OnlyAfter"

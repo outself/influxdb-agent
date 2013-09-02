@@ -11,7 +11,10 @@ import (
 	. "utils"
 )
 
-type LogMonitoringSuite struct{}
+type LogMonitoringSuite struct {
+	reporter *ReporterMock
+	detector *AnomaliesDetector
+}
 
 var _ = Suite(&LogMonitoringSuite{})
 
@@ -45,7 +48,7 @@ func (self *ReporterMock) Report(metric string, value float64, timestamp time.Ti
 	return nil
 }
 
-func (self *LogMonitoringSuite) TestParsing(c *C) {
+func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 	// create monitoring config
 	config := &monitoring.MonitorConfig{
 		Monitors: []*monitoring.Monitor{
@@ -56,22 +59,37 @@ func (self *LogMonitoringSuite) TestParsing(c *C) {
 						AlertWhen:      monitoring.GREATER_THAN,
 						AlertThreshold: 1,
 						AlertOnMatch:   ".*WARN.*",
-						OnlyAfter:      4 * time.Second,
+						OnlyAfter:      2 * time.Second,
+					},
+				},
+			},
+			&monitoring.Monitor{
+				StatName: "foo.bar",
+				Conditions: []*monitoring.Condition{
+					&monitoring.Condition{
+						AlertWhen:      monitoring.GREATER_THAN,
+						AlertThreshold: 90.0,
+						OnlyAfter:      2 * time.Second,
 					},
 				},
 			},
 		},
 	}
 
+	self.reporter = &ReporterMock{}
+	self.detector = NewAnomaliesDetector(self.reporter)
 	ioutil.WriteFile("/tmp/foo.txt", nil, 0644)
-
-	reporter := &ReporterMock{}
-	detector := NewAnomaliesDetector(reporter)
-	detector.config = config
+	self.detector.config = config
 	AgentConfig.Sleep = 1 * time.Second
-	go watchLogFile(detector)
+	go watchLogFile(self.detector)
+}
 
-	time.Sleep(2 * time.Second)
+func (self *LogMonitoringSuite) SetUpTest(c *C) {
+	self.reporter.events = nil
+}
+
+func (self *LogMonitoringSuite) TestLogMonitoring(c *C) {
+	time.Sleep(1 * time.Second)
 
 	file, err := os.OpenFile("/tmp/foo.txt", os.O_APPEND|os.O_RDWR, 0644)
 	c.Assert(err, IsNil)
@@ -79,15 +97,42 @@ func (self *LogMonitoringSuite) TestParsing(c *C) {
 	fmt.Fprint(file, "WARN: testing should exist\n")
 	file.Close()
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 
-	c.Assert(reporter.events, HasLen, 1)
-	c.Assert(reporter.events[0].value, Equals, 2.0)
-	c.Assert(reporter.events[0].dimensions, DeepEquals, errplane.Dimensions{
+	c.Assert(self.reporter.events, HasLen, 1)
+	c.Assert(self.reporter.events[0].value, Equals, 2.0)
+	c.Assert(self.reporter.events[0].dimensions, DeepEquals, errplane.Dimensions{
 		"LogFile":        "/tmp/foo.txt",
 		"AlertWhen":      monitoring.GREATER_THAN.String(),
 		"AlertThreshold": "1",
 		"AlertOnMatch":   ".*WARN.*",
-		"OnlyAfter":      "4s",
+		"OnlyAfter":      "2s",
 	})
+}
+
+func (self *LogMonitoringSuite) TestResetMetricMonitoring(c *C) {
+	// test resetting of the metric monitoring if the value of the metric
+	// went below the threshold, i.e. cpu went below the threshold
+	self.detector.ReportMetricEvent("foo.bar", 95.0)
+
+	time.Sleep(1 * time.Second)
+
+	self.detector.ReportMetricEvent("foo.bar", 85.0)
+
+	c.Assert(self.reporter.events, HasLen, 0)
+}
+
+func (self *LogMonitoringSuite) TestMetricMonitoring(c *C) {
+	self.detector.ReportMetricEvent("foo.bar", 95.0)
+
+	time.Sleep(2 * time.Second)
+
+	self.detector.ReportMetricEvent("foo.bar", 95.0)
+
+	c.Assert(self.reporter.events, HasLen, 1)
+	c.Assert(self.reporter.events[0].value, Equals, 1.0)
+	c.Assert(self.reporter.events[0].dimensions["StatName"], Equals, "foo.bar")
+	c.Assert(self.reporter.events[0].dimensions["AlertWhen"], Equals, ">")
+	c.Assert(self.reporter.events[0].dimensions["AlertThreshold"], Equals, "90")
+	c.Assert(self.reporter.events[0].dimensions["OnlyAfter"], Equals, "2s")
 }
