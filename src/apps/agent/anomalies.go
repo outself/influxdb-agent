@@ -88,54 +88,127 @@ func (self *AnomaliesDetector) filesToMonitor() []string {
 	return paths
 }
 
-func (self *AnomaliesDetector) ReportMetricEvent(metricName string, value float64) {
+func (self *AnomaliesDetector) Report(metricName string, value float64, context string, dimensions errplane.Dimensions) {
 	if self.config == nil {
 		return
 	}
 
 	for _, monitor := range self.config.Monitors {
-		if monitor.StatName != metricName {
+		if monitor.StatName == metricName {
+			self.reportMetricEvent(monitor, value)
 			continue
 		}
 
-		// we have a monitor that matches the given filename
-		for _, condition := range monitor.Conditions {
-			// split lines and see if any one of them matches
-			key := fmt.Sprintf("%#v/%#v", monitor, condition)
-			if value < condition.AlertThreshold {
-				eventCache.Delete(key)
-			}
-
-			_metricEvents, ok := eventCache.Get(key)
-			if !ok {
-				metricEvents := &MetricEvents{}
-				eventCache.Set(key, metricEvents, 0)
-				_metricEvents = metricEvents
-			}
-
-			metricEvents := _metricEvents.(*MetricEvents)
-			metricEvents.events = append(metricEvents.events, &Event{time.Now()})
-
-			if len(metricEvents.events) > 0 && time.Now().Sub(metricEvents.events[0].timestamp) > condition.OnlyAfter {
-				self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
-					"StatName":       monitor.StatName,
-					"AlertWhen":      condition.AlertWhen.String(),
-					"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
-					"OnlyAfter":      condition.OnlyAfter.String(),
-				})
-			}
-
-			// remove all events that are older than "OnlyAfter"
-			thresholdTime := time.Now().Add(-condition.OnlyAfter)
-			var newEvents []*Event
-			for idx, event := range metricEvents.events {
-				if event.timestamp.After(thresholdTime) {
-					newEvents = metricEvents.events[idx:]
-					break
-				}
-			}
-			metricEvents.events = newEvents
+		if monitor.PluginName == "" {
+			// not a plugin monitor
+			continue
 		}
+
+		pluginRegexp, _ := regexp.Compile("plugins\\.([^.]*)\\.status")
+		matches := pluginRegexp.FindStringSubmatch(metricName)
+		if len(matches) != 2 {
+			// something is wrong or the metric name isn't a plugin status
+			continue
+		}
+
+		pluginName := matches[1]
+		match, err := regexp.MatchString(monitor.PluginName, pluginName)
+		if !match || err != nil {
+			// doesn't match the monitor regex
+			continue
+		}
+		status := dimensions["status"]
+		self.reportPluginEvent(monitor, pluginName, status)
+		// stop processing any further plugin monitor
+		break
+	}
+}
+
+func (self *AnomaliesDetector) reportPluginEvent(monitor *monitoring.Monitor, name string, status string) {
+	// we have a monitor that matches the given filename
+	for _, condition := range monitor.Conditions {
+		ok, err := regexp.MatchString(condition.AlertOnMatch, status)
+		if err != nil {
+			log.Error("Error while matching regex: %s. Error: %s", condition.AlertWhen)
+			return
+		}
+		// split lines and see if any one of them matches
+		key := fmt.Sprintf("%#v/%#v", monitor, condition)
+		if !ok {
+			eventCache.Delete(key)
+			return
+		}
+
+		_metricEvents, ok := eventCache.Get(key)
+		if !ok {
+			metricEvents := &MetricEvents{}
+			eventCache.Set(key, metricEvents, 0)
+			_metricEvents = metricEvents
+		}
+
+		metricEvents := _metricEvents.(*MetricEvents)
+		metricEvents.events = append(metricEvents.events, &Event{time.Now()})
+
+		if len(metricEvents.events) > 0 && time.Now().Sub(metricEvents.events[0].timestamp) > condition.OnlyAfter {
+			self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+				"PluginName":   name,
+				"AlertOnMatch": condition.AlertOnMatch,
+				"OnlyAfter":    condition.OnlyAfter.String(),
+			})
+		}
+
+		// remove all events that are older than "OnlyAfter"
+		thresholdTime := time.Now().Add(-condition.OnlyAfter)
+		var newEvents []*Event
+		for idx, event := range metricEvents.events {
+			if event.timestamp.After(thresholdTime) {
+				newEvents = metricEvents.events[idx:]
+				break
+			}
+		}
+		metricEvents.events = newEvents
+	}
+}
+
+func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, value float64) {
+	// we have a monitor that matches the given filename
+	for _, condition := range monitor.Conditions {
+		// split lines and see if any one of them matches
+		key := fmt.Sprintf("%#v/%#v", monitor, condition)
+		if value < condition.AlertThreshold {
+			eventCache.Delete(key)
+			return
+		}
+
+		_metricEvents, ok := eventCache.Get(key)
+		if !ok {
+			metricEvents := &MetricEvents{}
+			eventCache.Set(key, metricEvents, 0)
+			_metricEvents = metricEvents
+		}
+
+		metricEvents := _metricEvents.(*MetricEvents)
+		metricEvents.events = append(metricEvents.events, &Event{time.Now()})
+
+		if len(metricEvents.events) > 0 && time.Now().Sub(metricEvents.events[0].timestamp) > condition.OnlyAfter {
+			self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+				"StatName":       monitor.StatName,
+				"AlertWhen":      condition.AlertWhen.String(),
+				"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
+				"OnlyAfter":      condition.OnlyAfter.String(),
+			})
+		}
+
+		// remove all events that are older than "OnlyAfter"
+		thresholdTime := time.Now().Add(-condition.OnlyAfter)
+		var newEvents []*Event
+		for idx, event := range metricEvents.events {
+			if event.timestamp.After(thresholdTime) {
+				newEvents = metricEvents.events[idx:]
+				break
+			}
+		}
+		metricEvents.events = newEvents
 	}
 }
 
