@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/errplane/errplane-go"
 	"github.com/errplane/errplane-go-common/monitoring"
@@ -14,22 +15,12 @@ import (
 type LogMonitoringSuite struct {
 	reporter *ReporterMock
 	detector *AnomaliesDetector
+	tempFile string
 }
 
 var _ = Suite(&LogMonitoringSuite{})
 
 /* Mocks */
-
-type MetricEvent struct {
-	metric string
-	value  float64
-}
-
-type LogEvent struct {
-	filename string
-	oldLines []string
-	newLines []string
-}
 
 type MockedEvent struct {
 	metric     string
@@ -49,16 +40,34 @@ func (self *ReporterMock) Report(metric string, value float64, timestamp time.Ti
 }
 
 func (self *LogMonitoringSuite) SetUpSuite(c *C) {
+	self.reporter = &ReporterMock{}
+	self.detector = NewAnomaliesDetector(self.reporter)
+	ioutil.WriteFile("/tmp/foo.txt", nil, 0644)
+	AgentConfig.Sleep = 1 * time.Second
+	go watchLogFile(self.detector)
+}
+
+func (self *LogMonitoringSuite) SetUpTest(c *C) {
+	tempFile, err := ioutil.TempFile(os.TempDir(), "logfile")
+	self.tempFile = tempFile.Name()
+	c.Assert(err, IsNil)
+
 	// create monitoring config
 	config := &monitoring.MonitorConfig{
 		Monitors: []*monitoring.Monitor{
 			&monitoring.Monitor{
-				LogName: "/tmp/foo.txt",
+				LogName: self.tempFile,
 				Conditions: []*monitoring.Condition{
 					&monitoring.Condition{
 						AlertWhen:      monitoring.GREATER_THAN,
-						AlertThreshold: 1,
+						AlertThreshold: 2,
 						AlertOnMatch:   ".*WARN.*",
+						OnlyAfter:      2 * time.Second,
+					},
+					&monitoring.Condition{
+						AlertWhen:      monitoring.GREATER_THAN,
+						AlertThreshold: 1,
+						AlertOnMatch:   ".*ERROR.*",
 						OnlyAfter:      2 * time.Second,
 					},
 				},
@@ -75,23 +84,14 @@ func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 			},
 		},
 	}
-
-	self.reporter = &ReporterMock{}
-	self.detector = NewAnomaliesDetector(self.reporter)
-	ioutil.WriteFile("/tmp/foo.txt", nil, 0644)
 	self.detector.config = config
-	AgentConfig.Sleep = 1 * time.Second
-	go watchLogFile(self.detector)
-}
-
-func (self *LogMonitoringSuite) SetUpTest(c *C) {
 	self.reporter.events = nil
 }
 
 func (self *LogMonitoringSuite) TestLogMonitoring(c *C) {
 	time.Sleep(1 * time.Second)
 
-	file, err := os.OpenFile("/tmp/foo.txt", os.O_APPEND|os.O_RDWR, 0644)
+	file, err := os.OpenFile(self.tempFile, os.O_APPEND|os.O_RDWR, 0644)
 	c.Assert(err, IsNil)
 	fmt.Fprint(file, "WARN: testing\n")
 	fmt.Fprint(file, "WARN: testing should exist\n")
@@ -101,11 +101,47 @@ func (self *LogMonitoringSuite) TestLogMonitoring(c *C) {
 
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 2.0)
+	c.Assert(self.reporter.events[0].context, Equals, "")
 	c.Assert(self.reporter.events[0].dimensions, DeepEquals, errplane.Dimensions{
-		"LogFile":        "/tmp/foo.txt",
+		"LogFile":        self.tempFile,
+		"AlertWhen":      monitoring.GREATER_THAN.String(),
+		"AlertThreshold": "2",
+		"AlertOnMatch":   ".*WARN.*",
+		"OnlyAfter":      "2s",
+	})
+}
+
+func (self *LogMonitoringSuite) TestLogContext(c *C) {
+	time.Sleep(1 * time.Second)
+
+	file, err := os.OpenFile(self.tempFile, os.O_APPEND|os.O_RDWR, 0644)
+	c.Assert(err, IsNil)
+	buffer := bytes.NewBufferString("")
+	for i := 0; i < 10; i++ {
+		buffer.WriteString("INFO: some info\n")
+		fmt.Fprint(file, "INFO: some info\n")
+	}
+	fmt.Fprint(file, "ERROR: testing should exist\n")
+	buffer.WriteString("ERROR: testing should exist\n")
+	for i := 0; i < 10; i++ {
+		if i < 9 {
+			buffer.WriteString("INFO: some info\n")
+		}
+		fmt.Fprint(file, "INFO: some info\n")
+	}
+	buffer.WriteString("INFO: some info")
+	file.Close()
+
+	time.Sleep(1 * time.Second)
+
+	c.Assert(self.reporter.events, HasLen, 1)
+	c.Assert(self.reporter.events[0].value, Equals, 1.0)
+	c.Assert(self.reporter.events[0].context, Equals, buffer.String())
+	c.Assert(self.reporter.events[0].dimensions, DeepEquals, errplane.Dimensions{
+		"LogFile":        self.tempFile,
 		"AlertWhen":      monitoring.GREATER_THAN.String(),
 		"AlertThreshold": "1",
-		"AlertOnMatch":   ".*WARN.*",
+		"AlertOnMatch":   ".*ERROR.*",
 		"OnlyAfter":      "2s",
 	})
 }

@@ -49,6 +49,9 @@ func watchLogFile(detector Detector) {
 				if ev.IsModify() {
 					log.Debug("File %s was modified", path)
 				}
+
+				time.Sleep(100 * time.Millisecond)
+
 				statSize, err := getSize(path)
 				if err != nil {
 					log.Error("Cannot get stat for %s. Error: %s", path, err)

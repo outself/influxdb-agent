@@ -6,6 +6,7 @@ import (
 	"github.com/errplane/errplane-go"
 	"github.com/errplane/errplane-go-common/monitoring"
 	"github.com/pmylund/go-cache"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,12 +14,19 @@ import (
 	"utils"
 )
 
+type LogEvent struct {
+	timestamp time.Time
+	before    []string
+	lines     string
+	after     []string
+}
+
 type Event struct {
 	timestamp time.Time
 }
 
 type LogEvents struct {
-	events []*Event
+	events []*LogEvent
 }
 
 type MetricEvents struct {
@@ -146,8 +154,8 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 		// we have a monitor that matches the given filename
 		for _, condition := range monitor.Conditions {
 			// split lines and see if any one of them matches
-			matchingLines := make([]string, 0)
-			for _, line := range newLines {
+			matchingLines := make([]int, 0)
+			for idx, line := range newLines {
 				lowerCased := strings.ToLower(line)
 				lowerCasedCondition := strings.ToLower(condition.AlertOnMatch)
 				// log.Debug("Checking whether %s matches %s", lowerCasedCondition, lowerCased)
@@ -158,7 +166,7 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 					continue
 				}
 				// log.Debug("%s matches %s", lowerCasedCondition, lowerCased)
-				matchingLines = append(matchingLines, line)
+				matchingLines = append(matchingLines, idx)
 			}
 
 			if len(matchingLines) == 0 {
@@ -176,13 +184,25 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 			}
 
 			logEvents := _logEvents.(*LogEvents)
-			for _, _ = range matchingLines {
-				logEvents.events = append(logEvents.events, &Event{time.Now()})
+			for _, idx := range matchingLines {
+				// get the previous 10 lines to create the context
+				oldLinesIdx := 10 - idx
+				before := []string{}
+				if oldLinesIdx > 0 && oldLinesIdx < len(oldLines) {
+					before = append(before, oldLines[oldLinesIdx:]...)
+				}
+				before = append(before, newLines[:idx]...)
+
+				// get the following 10 lines
+				lastLine := int(math.Min(float64(idx+11), float64(len(newLines))))
+				after := newLines[idx+1 : lastLine]
+
+				logEvents.events = append(logEvents.events, &LogEvent{time.Now(), before, newLines[idx], after})
 			}
 
 			// remove all events that are older than "OnlyAfter"
 			thresholdTime := time.Now().Add(-condition.OnlyAfter)
-			var newEvents []*Event
+			var newEvents []*LogEvent
 			// log.Debug("threshold time: %s", thresholdTime)
 			for idx, event := range logEvents.events {
 				// log.Debug("event timestamp: %s", event.timestamp)
@@ -194,7 +214,13 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 			logEvents.events = newEvents
 			// log.Debug("new events: %d", len(logEvents.events))
 			if len(logEvents.events) >= int(condition.AlertThreshold) {
-				self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), "", errplane.Dimensions{
+				context := ""
+				if condition.AlertThreshold == 1 {
+					event := logEvents.events[0]
+					context = strings.Join(event.before, "\n") + "\n" + event.lines + "\n" + strings.Join(event.after, "\n")
+				}
+
+				self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), context, errplane.Dimensions{
 					"LogFile":        monitor.LogName,
 					"AlertWhen":      condition.AlertWhen.String(),
 					"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
