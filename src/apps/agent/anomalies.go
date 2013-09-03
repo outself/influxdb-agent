@@ -42,7 +42,7 @@ func init() {
 type Detector interface {
 	filesToMonitor() []string
 	ReportLogEvent(string, []string, []string)
-	ReportMetricEvent(string, float64)
+	Report(string, float64, string, errplane.Dimensions)
 }
 
 type AnomaliesDetector struct {

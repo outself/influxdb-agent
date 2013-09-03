@@ -82,6 +82,15 @@ func (self *LogMonitoringSuite) SetUpTest(c *C) {
 					},
 				},
 			},
+			&monitoring.Monitor{
+				PluginName: "redis",
+				Conditions: []*monitoring.Condition{
+					&monitoring.Condition{
+						AlertOnMatch: "critical",
+						OnlyAfter:    2 * time.Second,
+					},
+				},
+			},
 		},
 	}
 	self.detector.config = config
@@ -149,21 +158,21 @@ func (self *LogMonitoringSuite) TestLogContext(c *C) {
 func (self *LogMonitoringSuite) TestResetMetricMonitoring(c *C) {
 	// test resetting of the metric monitoring if the value of the metric
 	// went below the threshold, i.e. cpu went below the threshold
-	self.detector.ReportMetricEvent("foo.bar", 95.0)
+	self.detector.Report("foo.bar", 95.0, "", nil)
 
 	time.Sleep(1 * time.Second)
 
-	self.detector.ReportMetricEvent("foo.bar", 85.0)
+	self.detector.Report("foo.bar", 85.0, "", nil)
 
 	c.Assert(self.reporter.events, HasLen, 0)
 }
 
 func (self *LogMonitoringSuite) TestMetricMonitoring(c *C) {
-	self.detector.ReportMetricEvent("foo.bar", 95.0)
+	self.detector.Report("foo.bar", 95.0, "", nil)
 
 	time.Sleep(2 * time.Second)
 
-	self.detector.ReportMetricEvent("foo.bar", 95.0)
+	self.detector.Report("foo.bar", 95.0, "", nil)
 
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
@@ -171,4 +180,28 @@ func (self *LogMonitoringSuite) TestMetricMonitoring(c *C) {
 	c.Assert(self.reporter.events[0].dimensions["AlertWhen"], Equals, ">")
 	c.Assert(self.reporter.events[0].dimensions["AlertThreshold"], Equals, "90")
 	c.Assert(self.reporter.events[0].dimensions["OnlyAfter"], Equals, "2s")
+}
+
+func (self *LogMonitoringSuite) TestPluginMonitoring(c *C) {
+	self.detector.Report("plugins.redis.status", 1.0, "", errplane.Dimensions{"status": "critical"})
+
+	time.Sleep(2 * time.Second)
+
+	self.detector.Report("plugins.redis.status", 1.0, "", errplane.Dimensions{"status": "critical"})
+
+	c.Assert(self.reporter.events, HasLen, 1)
+	c.Assert(self.reporter.events[0].value, Equals, 1.0)
+	c.Assert(self.reporter.events[0].dimensions["PluginName"], Equals, "redis")
+	c.Assert(self.reporter.events[0].dimensions["AlertOnMatch"], Equals, "critical")
+	c.Assert(self.reporter.events[0].dimensions["OnlyAfter"], Equals, "2s")
+}
+
+func (self *LogMonitoringSuite) TestResetPluginMonitoring(c *C) {
+	self.detector.Report("plugins.redis.status", 1.0, "", errplane.Dimensions{"status": "critical"})
+
+	time.Sleep(2 * time.Second)
+
+	self.detector.Report("plugins.redis.status", 1.0, "", errplane.Dimensions{"status": "warning"})
+
+	c.Assert(self.reporter.events, HasLen, 0)
 }
