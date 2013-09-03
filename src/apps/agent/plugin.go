@@ -33,8 +33,8 @@ func (self *ProcessStateWrapper) ExitStatus() int {
 	return self.status.Sys().(syscall.WaitStatus).ExitStatus()
 }
 
-func (p *PluginStateOutput) String() string {
-	switch *p {
+func (p PluginStateOutput) String() string {
+	switch p {
 	case OK:
 		return "ok"
 	case WARNING:
@@ -44,7 +44,7 @@ func (p *PluginStateOutput) String() string {
 	case UNKNOWN:
 		return "unknown"
 	default:
-		panic(fmt.Errorf("WTF unknown state %d", *p))
+		panic(fmt.Errorf("WTF unknown state %d", p))
 	}
 }
 
@@ -73,6 +73,7 @@ type PluginOutput struct {
 func monitorPlugins(ep *errplane.Errplane) {
 	var previousConfig *AgentConfiguration
 	var plugins map[string]*PluginMetadata
+	var disabledPlugins map[string]bool
 
 	for {
 		config, err := GetPluginsToRun()
@@ -84,18 +85,23 @@ func monitorPlugins(ep *errplane.Errplane) {
 			config = previousConfig
 		}
 
+		disabledPlugins = make(map[string]bool)
+		for _, disabledPlugin := range config.DisabledPlugins {
+			disabledPlugins[disabledPlugin] = true
+		}
+
 		log.Debug("Iterating through %d plugins", len(config.Plugins))
 
 		// get the list of plugins that should be turned from the config service
 		plugins = getAvailablePlugins()
 
-		for name, instances := range config.Plugins {
-			plugin, ok := plugins[name]
-			if !ok {
-				log.Error("Cannot find plugin '%s'. Error: %s", name, err)
+		for name, plugin := range plugins {
+			if _, ok := disabledPlugins[name]; ok {
+				log.Debug("Plugin %s is disabled, skipping", name)
 				continue
 			}
 
+			instances := config.Plugins[name]
 			if len(instances) == 0 {
 				instances = DEFAULT_INSTANCES
 			}

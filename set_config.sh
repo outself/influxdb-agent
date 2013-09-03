@@ -16,9 +16,10 @@ curl -v -X POST 'http://c.staging.apiv3.errplane.com/databases/app4you2loveprodu
   "plugins":{
     "mysql":[{"name": "rds", "args": {"host": "errplaneprod.cjyimruzutir.us-east-1.rds.amazonaws.com", "user": "errplanepilotdb", "password": "3rrplan3", "port": "4406"}}]
   },
- "processes": [
-   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*v2_series_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/v2_series_monitor/boot.rb production"},
-   {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*http_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/http_monitor/boot.rb production"}
+  "disabled-plugins":["redis"],
+  "processes": [
+    {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*v2_series_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/v2_series_monitor/boot.rb production"},
+    {"name": "ruby", "status": "regex", "user":"rails", "regex":".*ruby.*http_monitor.*", "start": "/var/www/app/current/lib/with_env.sh /var/www/app/current/lib/http_monitor/boot.rb production"}
  ]
 }
 EOF

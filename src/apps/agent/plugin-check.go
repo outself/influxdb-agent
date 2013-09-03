@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"syscall"
 	"time"
 	. "utils"
 )
@@ -16,38 +17,42 @@ func checkNewPlugins() {
 
 	for {
 		plugins := getAvailablePlugins()
-
-		// filter out plugins that are already installed
-		pluginsToRun, err := GetPluginsToRun()
-		pluginsToCheck := make(map[string]*PluginMetadata)
-		if err == nil {
-			for name, plugin := range plugins {
-				if _, ok := pluginsToRun.Plugins[name]; ok {
-					continue
-				}
-
-				pluginsToCheck[name] = plugin
-			}
+		disabledPlugins := make(map[string]bool)
+		config, err := GetPluginsToRun()
+		if err != nil {
+			log.Error("Error while getting configuration from backend. Error: %s", err)
 		} else {
-			pluginsToCheck = plugins
+			for _, pluginName := range config.DisabledPlugins {
+				disabledPlugins[pluginName] = true
+			}
 		}
 
-		// remove the plugins that are already running
+		// all plugins are enabled
 
-		availablePlugins := make([]string, 0)
+		// // remove the plugins that are already running
 
-		for name, plugin := range pluginsToCheck {
-			log.Debug("checking whether plugin %s needs to be installed on this server or not", name)
+		availablePlugins := make(map[string]string)
 
+		for name, plugin := range plugins {
+			// log.Debug("checking whether plugin %s needs to be installed on this server or not", name)
+
+			if _, ok := disabledPlugins[name]; ok {
+				availablePlugins[name] = "disabled"
+				continue
+			}
 			cmd := exec.Command(path.Join(plugin.Path, "should_monitor"))
 			err := cmd.Run()
 			if err != nil {
+				availablePlugins[name] = "not_installed"
 				log.Debug("Doesn't seem like %s is installed on this server. Error: %s.", name, err)
 				continue
 			}
+			cmd = exec.Command(path.Join(plugin.Path, "status"))
+			cmd.Run()
+			exitStatus := cmd.ProcessState.Sys().(syscall.WaitStatus).ExitStatus()
+			availablePlugins[name] = PluginStateOutput(exitStatus).String()
 
-			availablePlugins = append(availablePlugins, name)
-			log.Debug("Plugin %s should be installed on this server. availablePlugins: %v", name, availablePlugins)
+			// log.Debug("Plugin %s should be installed on this server. availablePlugins: %v", name, availablePlugins)
 		}
 
 		// update the agent information

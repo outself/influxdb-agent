@@ -32,13 +32,14 @@ type PluginInformation struct {
 }
 
 type AgentConfiguration struct {
-	Plugins   map[string][]*Instance `json:"plugins"`
-	Processes []*Process             `json:"processes"`
+	Plugins         map[string][]*Instance `json:"plugins"`
+	DisabledPlugins []string               `json:"disabled-plugins"`
+	Processes       []*Process             `json:"processes"`
 }
 
 type AgentStatus struct {
-	Plugins   []string `json:"plugins"`
-	Timestamp int64    `json:"timestamp"`
+	Plugins   map[string]string `json:"plugins"`
+	Timestamp int64             `json:"timestamp"`
 }
 
 var AgentInfo *AgentConfiguration
