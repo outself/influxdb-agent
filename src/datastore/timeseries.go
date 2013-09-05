@@ -6,6 +6,7 @@ import (
 	log "code.google.com/p/log4go"
 	"encoding/binary"
 	"fmt"
+	. "github.com/errplane/errplane-go-common/agent"
 	"github.com/jmhodges/levigo"
 	"path"
 	"strings"
@@ -34,16 +35,15 @@ func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
 		writeOptions: writeOptions,
 		readOptions:  readOptions,
 	}
-	if err := datastore.openDb(time.Now()); err != nil {
+	if err := datastore.openDb(time.Now().Unix()); err != nil {
 		datastore.Close()
 		return nil, err
 	}
 	return datastore, nil
 }
 
-func (self *TimeseriesDatastore) openDb(timestamp time.Time) error {
-	timestamp = timestamp.In(time.UTC)
-	day := timestamp.Format("20060102")
+func (self *TimeseriesDatastore) openDb(epoch int64) error {
+	day := epochToDay(epoch)
 	if day != self.day {
 		dir := path.Join(self.dir, day)
 		opts := levigo.NewOptions()
@@ -270,16 +270,28 @@ func (self *TimeseriesDatastore) updateIndex(database, timeseries string, timest
 	return nil
 }
 
-func (self *TimeseriesDatastore) writePoints(database string, timeseries string, time time.Time, points []*Point) error {
-	if err := self.updateIndex(database, timeseries, time); err != nil {
+func timeToEpoch(timestamp time.Time) int64 {
+	return timestamp.Unix()
+}
+
+func epochToDay(epoch int64) string {
+	return time.Unix(epoch, 0).Format("20060102")
+}
+
+func (self *TimeseriesDatastore) WritePoints(database string, timeseries string, points []*Point) error {
+	if err := self.updateIndex(database, timeseries, time.Now()); err != nil {
 		return err
 	}
 
 	for _, point := range points {
+		if err := self.openDb(*point.Time); err != nil {
+			return err
+		}
+
 		key := fmt.Sprintf("%s~t~%s~%d_%d",
 			database,
 			timeseries,
-			time,
+			point.Time,
 			point.SequenceNumber,
 		)
 		id := fmt.Sprintf("%d_%d", *point.Time, *point.SequenceNumber)

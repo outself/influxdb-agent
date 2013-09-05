@@ -43,12 +43,7 @@ go get $build_args github.com/errplane/errplane-go \
     code.google.com/p/log4go \
     github.com/bmizerany/pat \
 	  github.com/pmylund/go-cache \
-    github.com/howeyc/fsnotify \
-    code.google.com/p/goprotobuf/proto \
-    code.google.com/p/goprotobuf/protoc-gen-go
-
-rm src/datasotre/*.pb.go
-PATH=bin:$PATH protoc --go_out=. src/datastore/*.proto
+    github.com/howeyc/fsnotify
 
 go build apps/agent
 go build apps/config-generator
