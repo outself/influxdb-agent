@@ -103,6 +103,45 @@ type GetParams struct {
 	notFilter         map[string]string
 }
 
+func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, startTime int64, yield func(string)) error {
+	ro := levigo.NewReadOptions()
+	it := self.db.NewIterator(ro)
+	defer it.Close()
+	defer ro.Close()
+
+	beginningKey := fmt.Sprintf("%s~i~", database)
+	key := fmt.Sprintf("%s~i~.............................", database)
+	if limit <= 0 || limit > 100000 {
+		limit = 100000
+	}
+
+	it.Seek([]byte(key))
+
+	for it = it; it.Valid() && limit > 0; it.Next() {
+		indexKey := string(it.Key())
+		if !strings.HasPrefix(indexKey, beginningKey) {
+			break
+		}
+		parts := strings.Split(indexKey, "~")
+		if len(parts) > 2 {
+			// get the timestamp
+			_value, err := self.db.Get(ro, it.Key())
+			if err != nil {
+				return err
+			}
+			var value int64
+			if err := binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value); err != nil {
+				return err
+			}
+			if value > startTime {
+				yield(parts[2])
+			}
+		}
+		limit--
+	}
+	return nil
+}
+
 func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point) error) error {
 	params.endTime = params.endTime + 1
 	ro := levigo.NewReadOptions()
