@@ -1,3 +1,6 @@
 [submodule "src/github.com/errplane/errplane-go-common"]
 	path = src/github.com/errplane/errplane-go-common
 	url = git@github.com:errplane/errplane-go-common.git
+[submodule "src/github.com/jmhodges/levigo"]
+	path = src/github.com/jmhodges/levigo
+	url = https://github.com/jmhodges/levigo
