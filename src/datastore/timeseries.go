@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/jmhodges/levigo"
+	"path"
 	"strings"
 	"time"
 )
@@ -17,39 +18,61 @@ const (
 )
 
 type TimeseriesDatastore struct {
+	day          string
 	db           *levigo.DB
+	today        string
+	dir          string
 	writeOptions *levigo.WriteOptions
+	readOptions  *levigo.ReadOptions
 }
 
 func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
-	opts := levigo.NewOptions()
-	opts.SetCache(levigo.NewLRUCache(100 * MEGABYTES))
-	opts.SetCreateIfMissing(true)
-	opts.SetBlockSize(256 * KILOBYTES)
-	db, err := levigo.Open(dir, opts)
-	if err != nil {
-		return nil, err
-	}
 	writeOptions := levigo.NewWriteOptions()
-
-	// this initializes the ends of the keyspace so seeks don't mess with us.
-	db.Put(writeOptions, []byte("9999"), []byte(""))
-	db.Put(writeOptions, []byte("0000"), []byte(""))
-	db.Put(writeOptions, []byte("aaaa"), []byte(""))
-	db.Put(writeOptions, []byte("zzzz"), []byte(""))
-	db.Put(writeOptions, []byte("AAAA"), []byte(""))
-	db.Put(writeOptions, []byte("ZZZZ"), []byte(""))
-	db.Put(writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
-	db.Put(writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
-
+	readOptions := levigo.NewReadOptions()
 	datastore := &TimeseriesDatastore{
-		db:           db,
+		dir:          dir,
 		writeOptions: writeOptions,
+		readOptions:  readOptions,
+	}
+	if err := datastore.openDb(time.Now()); err != nil {
+		datastore.Close()
+		return nil, err
 	}
 	return datastore, nil
 }
 
+func (self *TimeseriesDatastore) openDb(timestamp time.Time) error {
+	timestamp = timestamp.In(time.UTC)
+	day := timestamp.Format("20060102")
+	if day != self.day {
+		dir := path.Join(self.dir, day)
+		opts := levigo.NewOptions()
+		opts.SetCache(levigo.NewLRUCache(100 * MEGABYTES))
+		opts.SetCreateIfMissing(true)
+		opts.SetBlockSize(256 * KILOBYTES)
+		db, err := levigo.Open(dir, opts)
+		if err != nil {
+			return err
+		}
+
+		// this initializes the ends of the keyspace so seeks don't mess with us.
+		db.Put(self.writeOptions, []byte("9999"), []byte(""))
+		db.Put(self.writeOptions, []byte("0000"), []byte(""))
+		db.Put(self.writeOptions, []byte("aaaa"), []byte(""))
+		db.Put(self.writeOptions, []byte("zzzz"), []byte(""))
+		db.Put(self.writeOptions, []byte("AAAA"), []byte(""))
+		db.Put(self.writeOptions, []byte("ZZZZ"), []byte(""))
+		db.Put(self.writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
+		db.Put(self.writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
+
+		self.db = db
+	}
+	return nil
+}
+
 func (self *TimeseriesDatastore) Close() {
+	self.writeOptions.Close()
+	self.readOptions.Close()
 	if self.db != nil {
 		self.db.Close()
 	}
