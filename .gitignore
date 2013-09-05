@@ -30,3 +30,4 @@ src/github.com/nsf/gocode/
 agent.test
 bin/gocode
 bin/godef
+bin/protoc-gen-go
