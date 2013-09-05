@@ -1,0 +1,14 @@
+package datastore;
+
+message Point {
+  required int64 time = 1;
+  required uint32 sequenceNumber = 2;
+  optional double value = 3;
+  optional string context = 4;
+  repeated Dimension dimensions = 5;
+}
+
+message Dimension {
+  optional string name = 1;
+  optional string value = 2;
+}
