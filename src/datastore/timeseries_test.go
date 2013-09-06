@@ -60,7 +60,6 @@ func (self *TimeseriesDatastoreSuite) TestOneDay(c *C) {
 		timeSeries: "timeseries",
 		startTime:  timestamp1,
 		endTime:    timestamp2,
-		limit:      100,
 	}, func(p *Point) error {
 		points = append(points, p)
 		return nil

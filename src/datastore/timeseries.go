@@ -187,6 +187,16 @@ func (self *TimeseriesDatastore) matchesFilters(params *GetParams, point *Point)
 	return true
 }
 
+func setGetParamsDefaults(params *GetParams) {
+	if params.endTime == 0 {
+		params.endTime = time.Now().Unix()
+	}
+
+	if params.limit == 0 {
+		params.limit = 50000
+	}
+}
+
 func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point) error) error {
 	params.endTime = params.endTime + 1
 	ro := levigo.NewReadOptions()
