@@ -22,83 +22,25 @@ const (
 )
 
 type TimeseriesDatastore struct {
-	day          string
-	db           *levigo.DB
-	dir          string
-	writeOptions *levigo.WriteOptions
-	readOptions  *levigo.ReadOptions
-	readLock     sync.Mutex
+	CommonDatastore
 }
 
 func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
 	writeOptions := levigo.NewWriteOptions()
 	readOptions := levigo.NewReadOptions()
 	datastore := &TimeseriesDatastore{
-		dir:          dir,
-		writeOptions: writeOptions,
-		readOptions:  readOptions,
-		readLock:     sync.Mutex{},
+		CommonDatastore: CommonDatastore{
+			dir:          path.Join(dir, "timeseries"),
+			writeOptions: writeOptions,
+			readOptions:  readOptions,
+			readLock:     sync.Mutex{},
+		},
 	}
 	if err := datastore.openDb(time.Now().Unix()); err != nil {
 		datastore.Close()
 		return nil, utils.WrapInErrplaneError(err)
 	}
 	return datastore, nil
-}
-
-func (self *TimeseriesDatastore) openDb(epoch int64) error {
-	day := epochToDay(epoch)
-	if day == self.day {
-		return nil
-	}
-	db, err := self.openLevelDb(day, true)
-	if err != nil {
-		return err
-	}
-	if self.db != nil {
-		self.db.Close()
-	}
-	self.db = db
-	self.day = day
-	return nil
-}
-
-func (self *TimeseriesDatastore) openLevelDb(day string, createIfMissing bool) (*levigo.DB, error) {
-	dir := path.Join(self.dir, day)
-	opts := levigo.NewOptions()
-	opts.SetCache(levigo.NewLRUCache(100 * MEGABYTES))
-	opts.SetCreateIfMissing(createIfMissing)
-	opts.SetBlockSize(256 * KILOBYTES)
-	db, err := levigo.Open(dir, opts)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, err
-		}
-		return nil, utils.WrapInErrplaneError(err)
-	}
-
-	// this initializes the ends of the keyspace so seeks don't mess with us.
-	db.Put(self.writeOptions, []byte("9999"), []byte(""))
-	db.Put(self.writeOptions, []byte("0000"), []byte(""))
-	db.Put(self.writeOptions, []byte("aaaa"), []byte(""))
-	db.Put(self.writeOptions, []byte("zzzz"), []byte(""))
-	db.Put(self.writeOptions, []byte("AAAA"), []byte(""))
-	db.Put(self.writeOptions, []byte("ZZZZ"), []byte(""))
-	db.Put(self.writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
-	db.Put(self.writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
-	return db, nil
-}
-
-func (self *TimeseriesDatastore) Close() {
-	self.readLock.Lock()
-	defer self.readLock.Unlock()
-
-	self.writeOptions.Close()
-	self.readOptions.Close()
-	if self.db != nil {
-		self.db.Close()
-	}
-	self.db = nil
 }
 
 func (self *TimeseriesDatastore) ReadPoint(database string, series string, id string) (*Point, error) {
