@@ -8,8 +8,10 @@ import (
 	"fmt"
 	. "github.com/errplane/errplane-go-common/agent"
 	"github.com/jmhodges/levigo"
+	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 	"utils"
 )
@@ -22,10 +24,10 @@ const (
 type TimeseriesDatastore struct {
 	day          string
 	db           *levigo.DB
-	today        string
 	dir          string
 	writeOptions *levigo.WriteOptions
 	readOptions  *levigo.ReadOptions
+	readLock     sync.Mutex
 }
 
 func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
@@ -35,6 +37,7 @@ func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
 		dir:          dir,
 		writeOptions: writeOptions,
 		readOptions:  readOptions,
+		readLock:     sync.Mutex{},
 	}
 	if err := datastore.openDb(time.Now().Unix()); err != nil {
 		datastore.Close()
@@ -45,34 +48,51 @@ func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
 
 func (self *TimeseriesDatastore) openDb(epoch int64) error {
 	day := epochToDay(epoch)
-	if day != self.day {
-		dir := path.Join(self.dir, day)
-		opts := levigo.NewOptions()
-		opts.SetCache(levigo.NewLRUCache(100 * MEGABYTES))
-		opts.SetCreateIfMissing(true)
-		opts.SetBlockSize(256 * KILOBYTES)
-		db, err := levigo.Open(dir, opts)
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
-
-		// this initializes the ends of the keyspace so seeks don't mess with us.
-		db.Put(self.writeOptions, []byte("9999"), []byte(""))
-		db.Put(self.writeOptions, []byte("0000"), []byte(""))
-		db.Put(self.writeOptions, []byte("aaaa"), []byte(""))
-		db.Put(self.writeOptions, []byte("zzzz"), []byte(""))
-		db.Put(self.writeOptions, []byte("AAAA"), []byte(""))
-		db.Put(self.writeOptions, []byte("ZZZZ"), []byte(""))
-		db.Put(self.writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
-		db.Put(self.writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
-
-		self.day = day
-		self.db = db
+	if day == self.day {
+		return nil
 	}
+	db, err := self.openLevelDb(day, true)
+	if err != nil {
+		return err
+	}
+	if self.db != nil {
+		self.db.Close()
+	}
+	self.db = db
+	self.day = day
 	return nil
 }
 
+func (self *TimeseriesDatastore) openLevelDb(day string, createIfMissing bool) (*levigo.DB, error) {
+	dir := path.Join(self.dir, day)
+	opts := levigo.NewOptions()
+	opts.SetCache(levigo.NewLRUCache(100 * MEGABYTES))
+	opts.SetCreateIfMissing(createIfMissing)
+	opts.SetBlockSize(256 * KILOBYTES)
+	db, err := levigo.Open(dir, opts)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, err
+		}
+		return nil, utils.WrapInErrplaneError(err)
+	}
+
+	// this initializes the ends of the keyspace so seeks don't mess with us.
+	db.Put(self.writeOptions, []byte("9999"), []byte(""))
+	db.Put(self.writeOptions, []byte("0000"), []byte(""))
+	db.Put(self.writeOptions, []byte("aaaa"), []byte(""))
+	db.Put(self.writeOptions, []byte("zzzz"), []byte(""))
+	db.Put(self.writeOptions, []byte("AAAA"), []byte(""))
+	db.Put(self.writeOptions, []byte("ZZZZ"), []byte(""))
+	db.Put(self.writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
+	db.Put(self.writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
+	return db, nil
+}
+
 func (self *TimeseriesDatastore) Close() {
+	self.readLock.Lock()
+	defer self.readLock.Unlock()
+
 	self.writeOptions.Close()
 	self.readOptions.Close()
 	if self.db != nil {
@@ -129,40 +149,56 @@ type GetParams struct {
 }
 
 func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, startTime int64, yield func(string)) error {
-	ro := levigo.NewReadOptions()
-	it := self.db.NewIterator(ro)
-	defer it.Close()
-	defer ro.Close()
+	self.readLock.Lock()
+	defer self.readLock.Unlock()
 
-	beginningKey := fmt.Sprintf("%s~i~", database)
-	key := fmt.Sprintf("%s~i~.............................", database)
-	if limit <= 0 || limit > 100000 {
-		limit = 100000
-	}
+	for {
+		day := epochToDay(startTime)
+		var err error
+		db, err := self.openLevelDb(day, false)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		ro := levigo.NewReadOptions()
+		it := db.NewIterator(ro)
+		defer it.Close()
+		defer ro.Close()
 
-	it.Seek([]byte(key))
+		beginningKey := fmt.Sprintf("%s~i~", database)
+		key := fmt.Sprintf("%s~i~.............................", database)
+		if limit <= 0 || limit > 100000 {
+			limit = 100000
+		}
 
-	for it = it; it.Valid() && limit > 0; it.Next() {
-		indexKey := string(it.Key())
-		if !strings.HasPrefix(indexKey, beginningKey) {
+		it.Seek([]byte(key))
+
+		for it = it; it.Valid() && limit > 0; it.Next() {
+			indexKey := string(it.Key())
+			if !strings.HasPrefix(indexKey, beginningKey) {
+				break
+			}
+			parts := strings.Split(indexKey, "~")
+			if len(parts) > 2 {
+				// get the timestamp
+				_value, err := db.Get(ro, it.Key())
+				if err != nil {
+					return utils.WrapInErrplaneError(err)
+				}
+				var value int64
+				if err := binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value); err != nil {
+					return utils.WrapInErrplaneError(err)
+				}
+				if value > startTime {
+					yield(parts[2])
+				}
+			}
+			limit--
+		}
+		if day == self.day || limit == 0 {
 			break
 		}
-		parts := strings.Split(indexKey, "~")
-		if len(parts) > 2 {
-			// get the timestamp
-			_value, err := self.db.Get(ro, it.Key())
-			if err != nil {
-				return utils.WrapInErrplaneError(err)
-			}
-			var value int64
-			if err := binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value); err != nil {
-				return utils.WrapInErrplaneError(err)
-			}
-			if value > startTime {
-				yield(parts[2])
-			}
-		}
-		limit--
+		startTime += (24 * int64(time.Hour)) / int64(time.Second)
 	}
 	return nil
 }
@@ -197,42 +233,66 @@ func setGetParamsDefaults(params *GetParams) {
 }
 
 func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point) error) error {
-	setGetParamsDefaults(params)
-	params.endTime = params.endTime + 1
-	ro := levigo.NewReadOptions()
-	it := self.db.NewIterator(ro)
-	defer it.Close()
-	defer ro.Close()
+	self.readLock.Lock()
+	defer self.readLock.Unlock()
 
-	beginningKey := fmt.Sprintf("%s~t~%s~", params.database, params.timeSeries)
-	key := fmt.Sprintf("%s~t~%s~%d_", params.database, params.timeSeries, params.endTime)
+	endTime := params.endTime
+	for {
+		day := epochToDay(endTime)
+		var err error
+		db := self.db
+		if day != self.day {
+			db, err = self.openLevelDb(day, false)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return err
+				}
+				return nil
+			}
+			defer db.Close()
+		}
 
-	it.Seek([]byte(key))
-	if it.Valid() {
-		it.Prev()
-	} else {
-		log.Info("GET_POINTS: first seek wasn't valid")
-	}
+		setGetParamsDefaults(params)
+		params.endTime = params.endTime + 1
+		ro := levigo.NewReadOptions()
+		it := db.NewIterator(ro)
+		defer it.Close()
+		defer ro.Close()
 
-	for it = it; it.Valid() && params.limit > 0; it.Prev() {
-		pointKey := string(it.Key())
-		if !strings.HasPrefix(pointKey, beginningKey) {
-			break
+		beginningKey := fmt.Sprintf("%s~t~%s~", params.database, params.timeSeries)
+		key := fmt.Sprintf("%s~t~%s~%d_", params.database, params.timeSeries, params.endTime)
+
+		it.Seek([]byte(key))
+		if it.Valid() {
+			it.Prev()
+		} else {
+			log.Info("GET_POINTS: first seek wasn't valid")
 		}
-		newPoint := &Point{}
-		err := proto.Unmarshal(it.Value(), newPoint)
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
-		if *newPoint.Time < params.startTime {
-			break
-		}
-		if self.matchesFilters(params, newPoint) {
-			params.limit--
-			if err := yield(newPoint); err != nil {
+
+		for it = it; it.Valid() && params.limit > 0; it.Prev() {
+			pointKey := string(it.Key())
+			if !strings.HasPrefix(pointKey, beginningKey) {
+				break
+			}
+			newPoint := &Point{}
+			err := proto.Unmarshal(it.Value(), newPoint)
+			if err != nil {
 				return utils.WrapInErrplaneError(err)
 			}
+			if *newPoint.Time < params.startTime {
+				break
+			}
+			if self.matchesFilters(params, newPoint) {
+				params.limit--
+				if err := yield(newPoint); err != nil {
+					return utils.WrapInErrplaneError(err)
+				}
+			}
 		}
+		if params.limit == 0 || endTime < params.startTime {
+			break
+		}
+		endTime -= 24 * int64(time.Hour) / int64(time.Second)
 	}
 	return nil
 }
@@ -286,6 +346,9 @@ func epochToDay(epoch int64) string {
 }
 
 func (self *TimeseriesDatastore) WritePoints(database string, timeseries string, points []*Point) error {
+	self.readLock.Lock()
+	defer self.readLock.Unlock()
+
 	if err := self.updateIndex(database, timeseries, time.Now()); err != nil {
 		return utils.WrapInErrplaneError(err)
 	}

@@ -29,27 +29,23 @@ func (self *TimeseriesDatastoreSuite) TearDownTest(c *C) {
 	}
 }
 
-func (self *TimeseriesDatastoreSuite) testDataRetrievalCommon(timestamp1, timestamp2 int64, c *C) {
+func (self *TimeseriesDatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
 	db, err := NewTimeseriesDatastore(self.dbDir)
 	defer db.Close()
 	c.Assert(err, IsNil)
 
-	value1 := 1.0
-	value2 := 2.0
 	var sequence uint32 = 1
 
-	err = db.WritePoints("dbname", "timeseries", []*Point{
-		&Point{
-			Time:           &timestamp1,
-			Value:          &value1,
-			SequenceNumber: &sequence,
-		},
-		&Point{
-			Time:           &timestamp2,
-			Value:          &value2,
-			SequenceNumber: &sequence,
-		},
-	})
+	for idx, timestamp := range timestamps {
+		value := float64(idx)
+		err = db.WritePoints("dbname", "timeseries", []*Point{
+			&Point{
+				Time:           &timestamp,
+				Value:          &value,
+				SequenceNumber: &sequence,
+			},
+		})
+	}
 
 	c.Assert(err, IsNil)
 
@@ -57,28 +53,37 @@ func (self *TimeseriesDatastoreSuite) testDataRetrievalCommon(timestamp1, timest
 	err = db.ReadSeries(&GetParams{
 		database:   "dbname",
 		timeSeries: "timeseries",
-		startTime:  timestamp1,
-		endTime:    timestamp2,
+		startTime:  timestamps[0],
+		endTime:    timestamps[len(timestamps)-1],
 	}, func(p *Point) error {
 		points = append(points, p)
 		return nil
 	})
 
 	c.Assert(err, IsNil)
-	c.Assert(points, HasLen, 2)
-	c.Assert(*points[0].Value, Equals, 2.0)
-	c.Assert(*points[1].Value, Equals, 1.0)
+	c.Assert(points, HasLen, len(timestamps))
+	for idx, _ := range timestamps {
+		value := float64(len(timestamps) - idx - 1)
+		c.Assert(*points[idx].Value, Equals, value)
+	}
 
 }
 
 func (self *TimeseriesDatastoreSuite) TestOneDay(c *C) {
 	timestamp1 := time.Now().Add(-5 * time.Second).Unix()
 	timestamp2 := time.Now().Unix()
-	self.testDataRetrievalCommon(timestamp1, timestamp2, c)
+	self.testDataRetrievalCommon(c, timestamp1, timestamp2)
 }
 
 func (self *TimeseriesDatastoreSuite) TestMultipleDays(c *C) {
-	timestamp1 := time.Now().Add(48 * time.Hour).Unix()
-	timestamp2 := time.Now().Add(24 * time.Hour).Unix()
-	self.testDataRetrievalCommon(timestamp1, timestamp2, c)
+	timestamp1 := time.Now().Add(-48 * time.Hour).Unix()
+	timestamp2 := time.Now().Add(-24 * time.Hour).Unix()
+	self.testDataRetrievalCommon(c, timestamp1, timestamp2)
+}
+
+func (self *TimeseriesDatastoreSuite) TestMultipleDaysAndToday(c *C) {
+	timestamp1 := time.Now().Add(-48 * time.Hour).Unix()
+	timestamp2 := time.Now().Add(-24 * time.Hour).Unix()
+	timestamp3 := time.Now().Unix()
+	self.testDataRetrievalCommon(c, timestamp1, timestamp2, timestamp3)
 }
