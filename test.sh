@@ -31,3 +31,4 @@ if [ "x$regex" != "x" ]; then
 fi
 
 go test -v apps/agent $gocheck_args
+go test -v datastore $gocheck_args
