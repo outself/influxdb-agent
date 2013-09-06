@@ -66,7 +66,6 @@ func (self *TimeseriesDatastore) openDb(epoch int64) error {
 		db.Put(self.writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
 		db.Put(self.writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
 
-		fmt.Printf("Current day = %s\n", day)
 		self.day = day
 		self.db = db
 	}
@@ -198,6 +197,7 @@ func setGetParamsDefaults(params *GetParams) {
 }
 
 func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point) error) error {
+	setGetParamsDefaults(params)
 	params.endTime = params.endTime + 1
 	ro := levigo.NewReadOptions()
 	it := self.db.NewIterator(ro)
