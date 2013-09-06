@@ -11,6 +11,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"utils"
 )
 
 const (
@@ -37,7 +38,7 @@ func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
 	}
 	if err := datastore.openDb(time.Now().Unix()); err != nil {
 		datastore.Close()
-		return nil, err
+		return nil, utils.WrapInErrplaneError(err)
 	}
 	return datastore, nil
 }
@@ -52,7 +53,7 @@ func (self *TimeseriesDatastore) openDb(epoch int64) error {
 		opts.SetBlockSize(256 * KILOBYTES)
 		db, err := levigo.Open(dir, opts)
 		if err != nil {
-			return err
+			return utils.WrapInErrplaneError(err)
 		}
 
 		// this initializes the ends of the keyspace so seeks don't mess with us.
@@ -65,6 +66,8 @@ func (self *TimeseriesDatastore) openDb(epoch int64) error {
 		db.Put(self.writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
 		db.Put(self.writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
 
+		fmt.Printf("Current day = %s\n", day)
+		self.day = day
 		self.db = db
 	}
 	return nil
@@ -85,13 +88,13 @@ func (self *TimeseriesDatastore) ReadPoint(database string, series string, id st
 	key := fmt.Sprintf("%s~t~%s~%s", database, series, id)
 	data, err := self.db.Get(ro, []byte(key))
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapInErrplaneError(err)
 	}
 	if data != nil {
 		point := &Point{}
 		err := proto.Unmarshal(data, point)
 		if err != nil {
-			return nil, err
+			return nil, utils.WrapInErrplaneError(err)
 		}
 		return point, nil
 	}
@@ -150,11 +153,11 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 			// get the timestamp
 			_value, err := self.db.Get(ro, it.Key())
 			if err != nil {
-				return err
+				return utils.WrapInErrplaneError(err)
 			}
 			var value int64
 			if err := binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value); err != nil {
-				return err
+				return utils.WrapInErrplaneError(err)
 			}
 			if value > startTime {
 				yield(parts[2])
@@ -163,6 +166,25 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 		limit--
 	}
 	return nil
+}
+
+func (self *TimeseriesDatastore) matchesFilters(params *GetParams, point *Point) bool {
+	shouldFilter := len(params.filter) > 0 || len(params.notFilter) > 0
+	if shouldFilter {
+		for dimensionName, expectedValue := range params.filter {
+			val, hasDimension := self.GetDimensionValue(point, &dimensionName)
+			if !hasDimension || *val != expectedValue {
+				return false
+			}
+		}
+		for dimensionName, expectedValue := range params.notFilter {
+			val, _ := self.GetDimensionValue(point, &dimensionName)
+			if *val == expectedValue {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point) error) error {
@@ -182,7 +204,6 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 		log.Info("GET_POINTS: first seek wasn't valid")
 	}
 
-	shouldFilter := params.filter != nil && (len(params.filter) > 0 || len(params.notFilter) > 0)
 	for it = it; it.Valid() && params.limit > 0; it.Prev() {
 		pointKey := string(it.Key())
 		if !strings.HasPrefix(pointKey, beginningKey) {
@@ -191,41 +212,15 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 		newPoint := &Point{}
 		err := proto.Unmarshal(it.Value(), newPoint)
 		if err != nil {
-			return err
+			return utils.WrapInErrplaneError(err)
 		}
 		if *newPoint.Time < params.startTime {
 			break
 		}
-		if shouldFilter {
-			matches := true
-			for dimensionName, expectedValue := range params.filter {
-				val, hasDimension := self.GetDimensionValue(newPoint, &dimensionName)
-				if !hasDimension {
-					matches = false
-				} else if *val != expectedValue {
-					matches = false
-				}
-				if !matches {
-					break
-				}
-			}
-			for dimensionName, expectedValue := range params.notFilter {
-				val, _ := self.GetDimensionValue(newPoint, &dimensionName)
-				if *val == expectedValue {
-					matches = false
-				}
-			}
-
-			if matches {
-				params.limit--
-				if err := yield(newPoint); err != nil {
-					return err
-				}
-			}
-		} else {
+		if self.matchesFilters(params, newPoint) {
 			params.limit--
 			if err := yield(newPoint); err != nil {
-				return err
+				return utils.WrapInErrplaneError(err)
 			}
 		}
 	}
@@ -244,13 +239,15 @@ func (self *TimeseriesDatastore) updateIndex(database, timeseries string, timest
 
 	_value, err := self.db.Get(ro, []byte(key))
 	if err != nil {
-		return err
+		return utils.WrapInErrplaneError(err)
 	}
 
 	var value int64
-	err = binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value)
-	if err != nil {
-		return err
+	if len(_value) > 0 {
+		err = binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value)
+		if err != nil {
+			return utils.WrapInErrplaneError(err)
+		}
 	}
 
 	lastUpdate := time.Unix(value, 0)
@@ -258,12 +255,12 @@ func (self *TimeseriesDatastore) updateIndex(database, timeseries string, timest
 		buffer := bytes.NewBuffer(nil)
 		err = binary.Write(buffer, binary.LittleEndian, timestamp.Unix())
 		if err != nil {
-			return err
+			return utils.WrapInErrplaneError(err)
 		}
 		_value = buffer.Bytes()
 		err = self.db.Put(self.writeOptions, []byte(key), _value)
 		if err != nil {
-			return err
+			return utils.WrapInErrplaneError(err)
 		}
 	}
 
@@ -280,51 +277,56 @@ func epochToDay(epoch int64) string {
 
 func (self *TimeseriesDatastore) WritePoints(database string, timeseries string, points []*Point) error {
 	if err := self.updateIndex(database, timeseries, time.Now()); err != nil {
-		return err
+		return utils.WrapInErrplaneError(err)
 	}
 
 	for _, point := range points {
 		if err := self.openDb(*point.Time); err != nil {
-			return err
+			return utils.WrapInErrplaneError(err)
 		}
 
 		key := fmt.Sprintf("%s~t~%s~%d_%d",
 			database,
 			timeseries,
-			point.Time,
-			point.SequenceNumber,
+			*point.Time,
+			*point.SequenceNumber,
 		)
 		id := fmt.Sprintf("%d_%d", *point.Time, *point.SequenceNumber)
 		oldPoint, err := self.ReadPoint(database, timeseries, id)
 		if err != nil {
-			return err
+			return utils.WrapInErrplaneError(err)
 		}
 
-		// update value
-		if *point.Value == float64(0) {
-			point.Value = oldPoint.Value
+		newDimensions := make([]*Dimension, 0)
+		if oldPoint != nil {
+
+			// update value
+			if *point.Value == float64(0) {
+				point.Value = oldPoint.Value
+			}
+
+			// update context
+			if point.Context == nil {
+				point.Context = oldPoint.Context
+			}
+			for _, dim := range oldPoint.Dimensions {
+				newVal, hasDimension := self.GetDimensionValue(point, dim.Name)
+				if hasDimension {
+					if *newVal != "" {
+						dim.Value = newVal
+						newDimensions = append(newDimensions, dim)
+					}
+				} else {
+					newDimensions = append(newDimensions, dim)
+				}
+			}
 		}
 
-		// update context
-		if point.Context == nil {
-			point.Context = oldPoint.Context
-		} else if *point.Context == "" {
+		if point.Context != nil && *point.Context == "" {
 			point.Context = nil
 		}
 
 		// update dimensions
-		newDimensions := make([]*Dimension, 0)
-		for _, dim := range oldPoint.Dimensions {
-			newVal, hasDimension := self.GetDimensionValue(point, dim.Name)
-			if hasDimension {
-				if *newVal != "" {
-					dim.Value = newVal
-					newDimensions = append(newDimensions, dim)
-				}
-			} else {
-				newDimensions = append(newDimensions, dim)
-			}
-		}
 		for _, dim := range point.Dimensions {
 			if _, hasDimension := self.GetDimensionValue(oldPoint, dim.Name); !hasDimension {
 				newDimensions = append(newDimensions, dim)
@@ -334,11 +336,11 @@ func (self *TimeseriesDatastore) WritePoints(database string, timeseries string,
 
 		data, err := proto.Marshal(point)
 		if err != nil {
-			return err
+			return utils.WrapInErrplaneError(err)
 		}
 		err = self.db.Put(self.writeOptions, []byte(key), data)
 		if err != nil {
-			return err
+			return utils.WrapInErrplaneError(err)
 		}
 	}
 	return nil

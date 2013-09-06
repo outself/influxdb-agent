@@ -1,7 +1,6 @@
 package datastore
 
 import (
-	"fmt"
 	. "github.com/errplane/errplane-go-common/agent"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
@@ -24,12 +23,10 @@ func (self *TimeseriesDatastoreSuite) SetUpTest(c *C) {
 }
 
 func (self *TimeseriesDatastoreSuite) TearDownTest(c *C) {
-	fmt.Printf("dbDir = %s\n", self.dbDir)
-
-	// if self.dbDir != "" {
-	// 	err := os.RemoveAll(self.dbDir)
-	// 	c.Assert(err, IsNil)
-	// }
+	if self.dbDir != "" {
+		err := os.RemoveAll(self.dbDir)
+		c.Assert(err, IsNil)
+	}
 }
 
 func (self *TimeseriesDatastoreSuite) TestOneDay(c *C) {
@@ -40,32 +37,39 @@ func (self *TimeseriesDatastoreSuite) TestOneDay(c *C) {
 	value1 := 1.0
 	timestamp2 := time.Now().Unix()
 	value2 := 2.0
+	var sequence uint32 = 1
 
-	db.WritePoints("dbname", "timeseries", []*Point{
+	err = db.WritePoints("dbname", "timeseries", []*Point{
 		&Point{
-			Time:  &timestamp1,
-			Value: &value1,
+			Time:           &timestamp1,
+			Value:          &value1,
+			SequenceNumber: &sequence,
 		},
 		&Point{
-			Time:  &timestamp2,
-			Value: &value2,
+			Time:           &timestamp2,
+			Value:          &value2,
+			SequenceNumber: &sequence,
 		},
 	})
 
+	c.Assert(err, IsNil)
+
 	points := make([]*Point, 0)
-	db.ReadSeries(&GetParams{
+	err = db.ReadSeries(&GetParams{
 		database:   "dbname",
 		timeSeries: "timeseries",
-		startTime:  time.Now().Add(-10 * time.Minute).Unix(),
-		endTime:    time.Now().Unix(),
+		startTime:  timestamp1,
+		endTime:    timestamp2,
+		limit:      100,
 	}, func(p *Point) error {
 		points = append(points, p)
 		return nil
 	})
 
+	c.Assert(err, IsNil)
 	c.Assert(points, HasLen, 2)
-	c.Assert(points[0].Value, Equals, 1.0)
-	c.Assert(points[1].Value, Equals, 1.0)
+	c.Assert(*points[0].Value, Equals, 2.0)
+	c.Assert(*points[1].Value, Equals, 1.0)
 }
 
 func (self *TimeseriesDatastoreSuite) TestMultipleDays(c *C) {}
