@@ -8,13 +8,13 @@ import (
 	"time"
 )
 
-type TimeseriesDatastoreSuite struct {
+type DatastoreSuite struct {
 	dbDir string
 }
 
-var _ = Suite(&TimeseriesDatastoreSuite{})
+var _ = Suite(&DatastoreSuite{})
 
-func (self *TimeseriesDatastoreSuite) SetUpTest(c *C) {
+func (self *DatastoreSuite) SetUpTest(c *C) {
 	var err error
 	self.dbDir, err = ioutil.TempDir(os.TempDir(), "db")
 	c.Assert(err, IsNil)
@@ -22,15 +22,15 @@ func (self *TimeseriesDatastoreSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (self *TimeseriesDatastoreSuite) TearDownTest(c *C) {
+func (self *DatastoreSuite) TearDownTest(c *C) {
 	if self.dbDir != "" {
 		err := os.RemoveAll(self.dbDir)
 		c.Assert(err, IsNil)
 	}
 }
 
-func (self *TimeseriesDatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
-	db, err := NewTimeseriesDatastore(self.dbDir)
+func (self *DatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
+	db, err := NewDatastore(self.dbDir)
 	defer db.Close()
 	c.Assert(err, IsNil)
 
@@ -69,19 +69,19 @@ func (self *TimeseriesDatastoreSuite) testDataRetrievalCommon(c *C, timestamps .
 
 }
 
-func (self *TimeseriesDatastoreSuite) TestOneDay(c *C) {
+func (self *DatastoreSuite) TestOneDay(c *C) {
 	timestamp1 := time.Now().Add(-5 * time.Second).Unix()
 	timestamp2 := time.Now().Unix()
 	self.testDataRetrievalCommon(c, timestamp1, timestamp2)
 }
 
-func (self *TimeseriesDatastoreSuite) TestMultipleDays(c *C) {
+func (self *DatastoreSuite) TestMultipleDays(c *C) {
 	timestamp1 := time.Now().Add(-48 * time.Hour).Unix()
 	timestamp2 := time.Now().Add(-24 * time.Hour).Unix()
 	self.testDataRetrievalCommon(c, timestamp1, timestamp2)
 }
 
-func (self *TimeseriesDatastoreSuite) TestMultipleDaysAndToday(c *C) {
+func (self *DatastoreSuite) TestMultipleDaysAndToday(c *C) {
 	timestamp1 := time.Now().Add(-48 * time.Hour).Unix()
 	timestamp2 := time.Now().Add(-24 * time.Hour).Unix()
 	timestamp3 := time.Now().Unix()
