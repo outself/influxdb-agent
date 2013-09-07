@@ -43,7 +43,7 @@ func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
 	return datastore, nil
 }
 
-func (self *TimeseriesDatastore) ReadPoint(database string, series string, id string) (*Point, error) {
+func (self *TimeseriesDatastore) readPoint(database string, series string, id string) (*Point, error) {
 	ro := levigo.NewReadOptions()
 	defer ro.Close()
 	key := fmt.Sprintf("%s~t~%s~%s", database, series, id)
@@ -62,32 +62,44 @@ func (self *TimeseriesDatastore) ReadPoint(database string, series string, id st
 	return nil, nil
 }
 
-func (self *TimeseriesDatastore) GetDimensionValue(point *Point, dimensionName *string) (value *string, hasDimension bool) {
-	var dim *Dimension
-	for _, d := range point.Dimensions {
-		if *d.Name == *dimensionName {
-			dim = d
-			break
+func (self *TimeseriesDatastore) updateIndex(database, timeseries string, timestamp time.Time) error {
+	// index key
+	key := fmt.Sprintf("%s~i~%s",
+		database,
+		timeseries,
+	)
+
+	ro := levigo.NewReadOptions()
+	defer ro.Close()
+
+	_value, err := self.db.Get(ro, []byte(key))
+	if err != nil {
+		return utils.WrapInErrplaneError(err)
+	}
+
+	var value int64
+	if len(_value) > 0 {
+		err = binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value)
+		if err != nil {
+			return utils.WrapInErrplaneError(err)
 		}
 	}
-	if dim != nil {
-		return dim.Value, true
-	}
-	d := ""
-	return &d, false
-}
 
-type GetParams struct {
-	database          string
-	timeSeries        string
-	startTime         int64
-	endTime           int64
-	limit             int64
-	includeContext    bool
-	includeDimensions bool
-	includeIds        bool
-	filter            map[string]string
-	notFilter         map[string]string
+	lastUpdate := time.Unix(value, 0)
+	if lastUpdate.Sub(timestamp) > 5*time.Minute {
+		buffer := bytes.NewBuffer(nil)
+		err = binary.Write(buffer, binary.LittleEndian, timestamp.Unix())
+		if err != nil {
+			return utils.WrapInErrplaneError(err)
+		}
+		_value = buffer.Bytes()
+		err = self.db.Put(self.writeOptions, []byte(key), _value)
+		if err != nil {
+			return utils.WrapInErrplaneError(err)
+		}
+	}
+
+	return nil
 }
 
 func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, startTime int64, yield func(string)) error {
@@ -145,35 +157,6 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 	return nil
 }
 
-func (self *TimeseriesDatastore) matchesFilters(params *GetParams, point *Point) bool {
-	shouldFilter := len(params.filter) > 0 || len(params.notFilter) > 0
-	if shouldFilter {
-		for dimensionName, expectedValue := range params.filter {
-			val, hasDimension := self.GetDimensionValue(point, &dimensionName)
-			if !hasDimension || *val != expectedValue {
-				return false
-			}
-		}
-		for dimensionName, expectedValue := range params.notFilter {
-			val, _ := self.GetDimensionValue(point, &dimensionName)
-			if *val == expectedValue {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func setGetParamsDefaults(params *GetParams) {
-	if params.endTime == 0 {
-		params.endTime = time.Now().Unix()
-	}
-
-	if params.limit == 0 {
-		params.limit = 50000
-	}
-}
-
 func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point) error) error {
 	self.readLock.Lock()
 	defer self.readLock.Unlock()
@@ -224,7 +207,7 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 			if *newPoint.Time < params.startTime {
 				break
 			}
-			if self.matchesFilters(params, newPoint) {
+			if params.matchesFilters(newPoint) {
 				params.limit--
 				if err := yield(newPoint); err != nil {
 					return utils.WrapInErrplaneError(err)
@@ -237,54 +220,6 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 		endTime -= 24 * int64(time.Hour) / int64(time.Second)
 	}
 	return nil
-}
-
-func (self *TimeseriesDatastore) updateIndex(database, timeseries string, timestamp time.Time) error {
-	// index key
-	key := fmt.Sprintf("%s~i~%s",
-		database,
-		timeseries,
-	)
-
-	ro := levigo.NewReadOptions()
-	defer ro.Close()
-
-	_value, err := self.db.Get(ro, []byte(key))
-	if err != nil {
-		return utils.WrapInErrplaneError(err)
-	}
-
-	var value int64
-	if len(_value) > 0 {
-		err = binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value)
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
-	}
-
-	lastUpdate := time.Unix(value, 0)
-	if lastUpdate.Sub(timestamp) > 5*time.Minute {
-		buffer := bytes.NewBuffer(nil)
-		err = binary.Write(buffer, binary.LittleEndian, timestamp.Unix())
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
-		_value = buffer.Bytes()
-		err = self.db.Put(self.writeOptions, []byte(key), _value)
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
-	}
-
-	return nil
-}
-
-func timeToEpoch(timestamp time.Time) int64 {
-	return timestamp.Unix()
-}
-
-func epochToDay(epoch int64) string {
-	return time.Unix(epoch, 0).Format("20060102")
 }
 
 func (self *TimeseriesDatastore) WritePoints(database string, timeseries string, points []*Point) error {
@@ -307,7 +242,7 @@ func (self *TimeseriesDatastore) WritePoints(database string, timeseries string,
 			*point.SequenceNumber,
 		)
 		id := fmt.Sprintf("%d_%d", *point.Time, *point.SequenceNumber)
-		oldPoint, err := self.ReadPoint(database, timeseries, id)
+		oldPoint, err := self.readPoint(database, timeseries, id)
 		if err != nil {
 			return utils.WrapInErrplaneError(err)
 		}
@@ -325,7 +260,7 @@ func (self *TimeseriesDatastore) WritePoints(database string, timeseries string,
 				point.Context = oldPoint.Context
 			}
 			for _, dim := range oldPoint.Dimensions {
-				newVal, hasDimension := self.GetDimensionValue(point, dim.Name)
+				newVal, hasDimension := point.GetDimensionValue(dim.Name)
 				if hasDimension {
 					if *newVal != "" {
 						dim.Value = newVal
@@ -343,7 +278,7 @@ func (self *TimeseriesDatastore) WritePoints(database string, timeseries string,
 
 		// update dimensions
 		for _, dim := range point.Dimensions {
-			if _, hasDimension := self.GetDimensionValue(oldPoint, dim.Name); !hasDimension {
+			if _, hasDimension := point.GetDimensionValue(dim.Name); !hasDimension {
 				newDimensions = append(newDimensions, dim)
 			}
 		}
