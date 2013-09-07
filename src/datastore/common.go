@@ -4,6 +4,7 @@ import (
 	"github.com/jmhodges/levigo"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"utils"
 )
@@ -18,7 +19,10 @@ type CommonDatastore struct {
 }
 
 func (self *CommonDatastore) openDb(epoch int64) error {
-	day := epochToDay(epoch)
+	day := ""
+	if epoch > 0 {
+		day = epochToDay(epoch)
+	}
 	if day == self.day {
 		return nil
 	}
@@ -35,7 +39,10 @@ func (self *CommonDatastore) openDb(epoch int64) error {
 }
 
 func (self *CommonDatastore) openLevelDb(day string, createIfMissing bool) (*levigo.DB, error) {
-	dir := path.Join(self.dir, day)
+	dir := self.dir
+	if day != "" {
+		dir = path.Join(dir, day)
+	}
 	err := os.MkdirAll(self.dir, 0755)
 	if err != nil {
 		return nil, err
@@ -46,9 +53,6 @@ func (self *CommonDatastore) openLevelDb(day string, createIfMissing bool) (*lev
 	opts.SetBlockSize(256 * KILOBYTES)
 	db, err := levigo.Open(dir, opts)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, err
-		}
 		return nil, utils.WrapInErrplaneError(err)
 	}
 
@@ -62,6 +66,22 @@ func (self *CommonDatastore) openLevelDb(day string, createIfMissing bool) (*lev
 	db.Put(self.writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
 	db.Put(self.writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
 	return db, nil
+}
+
+func (self *CommonDatastore) openDbOrUseTodays(t int64) (db *levigo.DB, shouldClose bool, err error) {
+	day := epochToDay(t)
+	db = self.db
+	if day != self.day {
+		db, err = self.openLevelDb(day, false)
+		if err != nil {
+			if strings.Contains(err.Error(), "does not exist") {
+				err = nil
+			}
+			return
+		}
+		shouldClose = true
+	}
+	return
 }
 
 func (self *CommonDatastore) Close() {

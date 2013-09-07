@@ -30,7 +30,7 @@ func (self *DatastoreSuite) TearDownTest(c *C) {
 }
 
 func (self *DatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
-	db, err := NewDatastore(self.dbDir)
+	db, err := NewTimeseriesDatastore(self.dbDir)
 	defer db.Close()
 	c.Assert(err, IsNil)
 

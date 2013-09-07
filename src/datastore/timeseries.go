@@ -8,7 +8,6 @@ import (
 	"fmt"
 	. "github.com/errplane/errplane-go-common/agent"
 	"github.com/jmhodges/levigo"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -107,13 +106,15 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 	defer self.readLock.Unlock()
 
 	for {
-		day := epochToDay(startTime)
-		var err error
-		db, err := self.openLevelDb(day, false)
-		if err != nil {
+		db, shouldClose, err := self.openDbOrUseTodays(startTime)
+		if db == nil || err != nil {
 			return err
 		}
-		defer db.Close()
+
+		if shouldClose {
+			defer db.Close()
+		}
+
 		ro := levigo.NewReadOptions()
 		it := db.NewIterator(ro)
 		defer it.Close()
@@ -149,7 +150,7 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 			}
 			limit--
 		}
-		if day == self.day || limit == 0 {
+		if limit == 0 {
 			break
 		}
 		startTime += (24 * int64(time.Hour)) / int64(time.Second)
@@ -163,17 +164,12 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 
 	endTime := params.endTime
 	for {
-		day := epochToDay(endTime)
-		var err error
-		db := self.db
-		if day != self.day {
-			db, err = self.openLevelDb(day, false)
-			if err != nil {
-				if os.IsNotExist(err) {
-					return err
-				}
-				return nil
-			}
+		db, shouldClose, err := self.openDbOrUseTodays(endTime)
+		if db == nil || err != nil {
+			return err
+		}
+
+		if shouldClose {
 			defer db.Close()
 		}
 
