@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	protocol "github.com/errplane/errplane-go-common/agent"
 	. "github.com/errplane/errplane-go-common/agent"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
@@ -86,4 +87,28 @@ func (self *DatastoreSuite) TestMultipleDaysAndToday(c *C) {
 	timestamp2 := time.Now().Add(-24 * time.Hour).Unix()
 	timestamp3 := time.Now().Unix()
 	self.testDataRetrievalCommon(c, timestamp1, timestamp2, timestamp3)
+}
+
+func (self *DatastoreSuite) TestSnapshots(c *C) {
+	db, err := NewSnapshotDatastore(self.dbDir)
+	c.Assert(err, IsNil)
+	c.Assert(db, NotNil)
+	id := "snapshot1"
+	t := time.Now().Unix()
+	s := time.Now().Add(-5 * time.Minute).Unix()
+	seriesName := "series1"
+	snapshot := &protocol.Snapshot{
+		Id:           &id,
+		CreationTime: &t,
+		EventTime:    &t,
+		StartTime:    &s,
+		EndTime:      &t,
+		Series: []*TimeSeries{
+			&TimeSeries{
+				Name: &seriesName,
+			},
+		},
+	}
+	err = db.SetSnapshot(snapshot)
+	c.Assert(err, IsNil)
 }
