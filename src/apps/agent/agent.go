@@ -357,7 +357,7 @@ func (self *Agent) diskSpaceStats(ch chan error) {
 			usage := sigar.FileSystemUsage{}
 			usage.Get(dir_name)
 
-			dimensions := errplane.Dimensions{"host": self.config.Hostname, "device": fs.DevName}
+			dimensions := errplane.Dimensions{"host": self.config.Hostname, "device": fs.DirName}
 
 			used := float64(usage.Total)
 			usedPercentage := usage.UsePercent()
