@@ -27,6 +27,9 @@ type Config struct {
 	ConfigService     string `yaml:"config-service"`
 	TopNProcesses     int    `yaml:"top-n-processes"`
 
+	// datastore
+	DatastoreDir string `yaml:"datastore-dir"`
+
 	// websocket configuration
 	RawWebsocketPing string `yaml:"websocket-ping"`
 	WebsocketPing    time.Duration

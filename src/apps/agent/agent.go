@@ -2,9 +2,11 @@ package main
 
 import (
 	log "code.google.com/p/log4go"
+	"datastore"
 	"flag"
 	"fmt"
 	"github.com/errplane/errplane-go"
+	"github.com/errplane/errplane-go-common/agent"
 	"github.com/errplane/gosigar"
 	"io/ioutil"
 	"math"
@@ -31,6 +33,7 @@ func main() {
 
 	if *pidFile == "" {
 		fmt.Printf("Pidfile is a required argument and cannot be empty")
+		os.Exit(1)
 	}
 	pid := os.Getpid()
 	err = ioutil.WriteFile(*pidFile, []byte(strconv.Itoa(pid)), 0644)
@@ -43,7 +46,7 @@ func main() {
 		fmt.Printf("Error while initializing the agent. Error: %s", err)
 		os.Exit(1)
 	}
-	if err := agent.startAgent(); err != nil {
+	if err := agent.start(); err != nil {
 		log.Error("Error occured while running the agent. Error: %s", err)
 		os.Exit(1)
 	}
@@ -55,9 +58,11 @@ type Reporter interface {
 }
 
 type Agent struct {
-	config       *utils.Config
-	configClient *utils.ConfigServiceClient
-	ep           *errplane.Errplane
+	config              *utils.Config
+	configClient        *utils.ConfigServiceClient
+	timeseriesDatastore *datastore.TimeseriesDatastore
+	snapshotDatastore   *datastore.SnapshotDatastore
+	ep                  *errplane.Errplane
 }
 
 func NewAgent(config *utils.Config) (*Agent, error) {
@@ -70,16 +75,28 @@ func NewAgent(config *utils.Config) (*Agent, error) {
 
 	configClient := utils.NewConfigServiceClient(config)
 
+	timeseriesDatastore, err := datastore.NewTimeseriesDatastore(config.DatastoreDir)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshotDatastore, err := datastore.NewSnapshotDatastore(config.DatastoreDir, config.Database(), timeseriesDatastore)
+	if err != nil {
+		return nil, err
+	}
+
 	agent := &Agent{
-		config:       config,
-		configClient: configClient,
-		ep:           ep,
+		config:              config,
+		configClient:        configClient,
+		timeseriesDatastore: timeseriesDatastore,
+		snapshotDatastore:   snapshotDatastore,
+		ep:                  ep,
 	}
 
 	return agent, nil
 }
 
-func (self *Agent) startAgent() error {
+func (self *Agent) start() error {
 	err := self.initLog()
 	if err != nil {
 		return utils.WrapInErrplaneError(err)
@@ -129,6 +146,31 @@ func (self *Agent) initLog() error {
 }
 
 func (self *Agent) Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions) {
+	time := timestamp.Unix()
+	var sequenceNumber uint32 = 1
+
+	protobufDimensions := make([]*agent.Dimension, 0, len(dimensions))
+	for name, value := range dimensions {
+		localName := name
+		localValue := value
+		protobufDimensions = append(protobufDimensions, &agent.Dimension{
+			Name:  &localName,
+			Value: &localValue,
+		})
+	}
+
+	self.timeseriesDatastore.WritePoints(self.config.Database(), metric, []*agent.Point{
+		&agent.Point{
+			Value:          &value,
+			Time:           &time,
+			SequenceNumber: &sequenceNumber,
+			Context:        &context,
+			Dimensions:     protobufDimensions,
+		},
+	})
+	if metric != "errplane.anomalies" {
+		return
+	}
 	err := self.ep.Report(metric, value, timestamp, "", dimensions)
 	if err != nil {
 		log.Error("Error while sending report. Error: %s", err)

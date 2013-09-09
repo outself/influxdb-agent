@@ -62,6 +62,8 @@ top-n-sleep:     1m                           # Sampling frequency of the top n 
 monitored-sleep: 10s                          # Sampling frequency of the monitored processes
 config-service:  %s											      # the location of the configuration service
 
+datastore-dir: /data/errplane-agent/shared/db
+
 # processes:
 #   - name:   mysqld
 #     start:  service mysql start             # the command to run to start the service
