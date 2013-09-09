@@ -85,7 +85,7 @@ func (self *TimeseriesDatastore) updateIndex(database, timeseries string, timest
 	}
 
 	lastUpdate := time.Unix(value, 0)
-	if lastUpdate.Sub(timestamp) > 5*time.Minute {
+	if timestamp.Sub(lastUpdate) > 5*time.Minute {
 		buffer := bytes.NewBuffer(nil)
 		err = binary.Write(buffer, binary.LittleEndian, timestamp.Unix())
 		if err != nil {
@@ -162,6 +162,7 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 	self.readLock.Lock()
 	defer self.readLock.Unlock()
 
+	setGetParamsDefaults(params)
 	endTime := params.endTime
 	for {
 		db, shouldClose, err := self.openDbOrUseTodays(endTime)
@@ -173,7 +174,6 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 			defer db.Close()
 		}
 
-		setGetParamsDefaults(params)
 		params.endTime = params.endTime + 1
 		ro := levigo.NewReadOptions()
 		it := db.NewIterator(ro)

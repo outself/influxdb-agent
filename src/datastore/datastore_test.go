@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"os"
 	"time"
+	"utils"
 )
 
 type DatastoreSuite struct {
@@ -50,6 +51,15 @@ func (self *DatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
 
 	c.Assert(err, IsNil)
 
+	// make sure the index is updated
+	metrics := map[string]bool{}
+	err = db.ReadSeriesIndex("dbname", 0, timestamps[0], func(m string) {
+		metrics[m] = true
+	})
+	c.Assert(metrics, HasLen, 1)
+	c.Assert(metrics["timeseries"], Equals, true)
+
+	// make sure the points are inserted
 	points := make([]*Point, 0)
 	err = db.ReadSeries(&GetParams{
 		database:   "dbname",
@@ -90,7 +100,9 @@ func (self *DatastoreSuite) TestMultipleDaysAndToday(c *C) {
 }
 
 func (self *DatastoreSuite) TestSnapshots(c *C) {
-	db, err := NewSnapshotDatastore(self.dbDir)
+	timeseriesDb, err := NewTimeseriesDatastore(self.dbDir)
+	c.Assert(err, IsNil)
+	db, err := NewSnapshotDatastore(self.dbDir, timeseriesDb)
 	c.Assert(err, IsNil)
 	c.Assert(db, NotNil)
 	id := "snapshot1"
@@ -111,4 +123,48 @@ func (self *DatastoreSuite) TestSnapshots(c *C) {
 	}
 	err = db.SetSnapshot(snapshot)
 	c.Assert(err, IsNil)
+}
+
+func (self *DatastoreSuite) TestSnapshotTaking(c *C) {
+	timeseriesDb, err := NewTimeseriesDatastore(self.dbDir)
+	c.Assert(err, IsNil)
+	db, err := NewSnapshotDatastore(self.dbDir, timeseriesDb)
+	c.Assert(err, IsNil)
+	c.Assert(db, NotNil)
+
+	startTime := time.Now().Add(-5 * time.Minute)
+
+	utils.AgentConfig.AppKey = "app4you2love"
+	utils.AgentConfig.Environment = "production"
+
+	pointTime := startTime.Add(2 * time.Minute).Unix()
+	var sequence uint32 = 1
+	value := 1.0
+	// insert some data
+	points := []*protocol.Point{
+		&protocol.Point{
+			Time:           &pointTime,
+			SequenceNumber: &sequence,
+			Value:          &value,
+		},
+	}
+	err = timeseriesDb.WritePoints(utils.AgentConfig.Database(), "timeseries1", points)
+	c.Assert(err, IsNil)
+	err = timeseriesDb.WritePoints(utils.AgentConfig.Database(), "timeseries2", points)
+	c.Assert(err, IsNil)
+
+	snapshot, err := db.TakeSnapshot([]string{".*"}, startTime)
+	c.Assert(err, IsNil)
+	existingSnapshot, err := db.GetSnapshot(snapshot.GetId())
+	c.Assert(err, IsNil)
+
+	for _, snapshot := range []*protocol.Snapshot{snapshot, existingSnapshot} {
+		c.Assert(snapshot.Series, HasLen, 2)
+		c.Assert(*snapshot.Series[0].Name, Equals, "timeseries1")
+		c.Assert(snapshot.Series[0].Points, HasLen, 1)
+		c.Assert(*snapshot.Series[0].Points[0].Value, Equals, 1.0)
+		c.Assert(*snapshot.Series[1].Name, Equals, "timeseries2")
+		c.Assert(snapshot.Series[1].Points, HasLen, 1)
+		c.Assert(*snapshot.Series[1].Points[0].Value, Equals, 1.0)
+	}
 }
