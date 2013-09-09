@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"os"
+	"path"
 	"time"
 	"utils"
 )
@@ -16,6 +17,7 @@ type LogMonitoringSuite struct {
 	reporter *ReporterMock
 	detector *AnomaliesDetector
 	tempFile string
+	dbDir    string
 }
 
 var _ = Suite(&LogMonitoringSuite{})
@@ -40,8 +42,10 @@ func (self *ReporterMock) Report(metric string, value float64, timestamp time.Ti
 
 func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 	self.reporter = &ReporterMock{}
+	self.dbDir = path.Join(os.TempDir(), "db")
 	config := &utils.Config{
-		Sleep: 1 * time.Second,
+		Sleep:        1 * time.Second,
+		DatastoreDir: self.dbDir,
 	}
 	agent, err := NewAgent(config)
 	c.Assert(err, IsNil)
@@ -49,6 +53,10 @@ func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 	self.detector = NewAnomaliesDetector(config, configClient, self.reporter)
 	ioutil.WriteFile("/tmp/foo.txt", nil, 0644)
 	go agent.watchLogFile(self.detector)
+}
+
+func (self *LogMonitoringSuite) TearDownSuite(c *C) {
+	os.RemoveAll(self.dbDir)
 }
 
 func (self *LogMonitoringSuite) SetUpTest(c *C) {
