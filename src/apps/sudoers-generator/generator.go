@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"unicode"
-	. "utils"
+	"utils"
 )
 
 const (
@@ -18,14 +18,14 @@ const (
 )
 
 func main() {
-	config := flag.String("config", "/etc/errplane-agent/config.yml", "The path to the config file")
+	configFile := flag.String("config", "/etc/errplane-agent/config.yml", "The path to the config file")
 	output := flag.String("output", "/etc/sudoers.d/errplane", "The path to the output file")
 	appendMode := flag.Bool("append", true, "Whether to generate a new file or append a errplane section to the sudoers file")
 	diff := flag.Bool("show-diff", true, "Show diff and prompt before applying changes")
 
 	flag.Parse()
-
-	if err := InitConfig(*config); err != nil {
+	config, err := utils.ParseConfig(*configFile)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot read configuration. Error: %s\n", err)
 		os.Exit(1)
 	}
@@ -45,7 +45,8 @@ func main() {
 
 	errplaneSection := bytes.NewBufferString("\n\nerrplane ALL= \\\n")
 
-	monitoredProcesses, err := GetMonitoredProcesses(nil)
+	configServiceClient := utils.NewConfigServiceClient(config)
+	monitoredProcesses, err := configServiceClient.GetMonitoredProcesses(nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot get the list of monitored processes\n")
 		os.Exit(1)
