@@ -150,6 +150,7 @@ func (self *DatastoreSuite) TestSnapshotTaking(c *C) {
 	}
 	err = timeseriesDb.WritePoints(utils.AgentConfig.Database(), "timeseries1", points)
 	c.Assert(err, IsNil)
+	value = 2.0
 	err = timeseriesDb.WritePoints(utils.AgentConfig.Database(), "timeseries2", points)
 	c.Assert(err, IsNil)
 
@@ -165,6 +166,6 @@ func (self *DatastoreSuite) TestSnapshotTaking(c *C) {
 		c.Assert(*snapshot.Series[0].Points[0].Value, Equals, 1.0)
 		c.Assert(*snapshot.Series[1].Name, Equals, "timeseries2")
 		c.Assert(snapshot.Series[1].Points, HasLen, 1)
-		c.Assert(*snapshot.Series[1].Points[0].Value, Equals, 1.0)
+		c.Assert(*snapshot.Series[1].Points[0].Value, Equals, 2.0)
 	}
 }
