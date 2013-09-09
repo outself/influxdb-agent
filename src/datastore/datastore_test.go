@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"fmt"
 	protocol "github.com/errplane/errplane-go-common/agent"
 	. "github.com/errplane/errplane-go-common/agent"
 	"io/ioutil"
@@ -122,6 +123,24 @@ func (self *DatastoreSuite) TestSnapshots(c *C) {
 	}
 	err = db.SetSnapshot(snapshot)
 	c.Assert(err, IsNil)
+}
+
+func (self *DatastoreSuite) TestSnapshotIdUniqueness(c *C) {
+	timeseriesDb, err := NewTimeseriesDatastore(self.dbDir)
+	c.Assert(err, IsNil)
+	database := "app4you2loveproduction"
+	db, err := NewSnapshotDatastore(self.dbDir, database, timeseriesDb)
+	c.Assert(err, IsNil)
+	c.Assert(db, NotNil)
+
+	startTime := time.Now().Add(-5 * time.Minute)
+
+	snapshot1, err := db.TakeSnapshot([]string{".*"}, startTime)
+	c.Assert(err, IsNil)
+	snapshot2, err := db.TakeSnapshot([]string{".*"}, startTime)
+	c.Assert(err, IsNil)
+	fmt.Printf("snapshot1.Id = %s, snapshot2.Id = %s\n", *snapshot1.Id, *snapshot2.Id)
+	c.Assert(*snapshot1.Id, Not(Equals), *snapshot2.Id)
 }
 
 func (self *DatastoreSuite) TestSnapshotTaking(c *C) {

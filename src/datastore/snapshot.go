@@ -79,7 +79,6 @@ func (self *SnapshotDatastore) TakeSnapshot(relatedMetricsRegex []string, start 
 		return nil, err
 	}
 	snapshotId := uuid.String()
-	snapshotId = "foo"
 	creationTime := time.Now().Unix()
 	startTime := start.Unix()
 	allTimeseries := make([]*protocol.TimeSeries, 0)
