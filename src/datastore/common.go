@@ -23,7 +23,7 @@ func (self *CommonDatastore) openDb(epoch int64) error {
 	if epoch > 0 {
 		day = epochToDay(epoch)
 	}
-	if day == self.day {
+	if day == self.day && day != "" {
 		return nil
 	}
 	db, err := self.openLevelDb(day, true)
