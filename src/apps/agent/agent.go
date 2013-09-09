@@ -63,6 +63,7 @@ type Agent struct {
 	timeseriesDatastore *datastore.TimeseriesDatastore
 	snapshotDatastore   *datastore.SnapshotDatastore
 	ep                  *errplane.Errplane
+	detector            *AnomaliesDetector
 }
 
 func NewAgent(config *utils.Config) (*Agent, error) {
@@ -114,8 +115,8 @@ func (self *Agent) start() error {
 	go self.checkNewPlugins()
 	go self.startUdpListener()
 	go self.startLocalServer()
-	detector := NewAnomaliesDetector(self.config, self.configClient, self)
-	go self.watchLogFile(detector)
+	self.detector = NewAnomaliesDetector(self.config, self.configClient, self)
+	go self.watchLogFile(self.detector)
 	log.Info("Agent started successfully")
 	err = <-ch
 	time.Sleep(1 * time.Second) // give the logger a chance to close and write to the file
@@ -146,6 +147,8 @@ func (self *Agent) initLog() error {
 }
 
 func (self *Agent) Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions) {
+	self.detector.Report(metric, value, context, dimensions)
+
 	time := timestamp.Unix()
 	var sequenceNumber uint32 = 1
 
