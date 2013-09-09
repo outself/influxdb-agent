@@ -6,7 +6,6 @@ import (
 	common "github.com/errplane/errplane-go-common"
 	"github.com/errplane/errplane-go-common/aggregator"
 	"time"
-	. "utils"
 )
 
 type AggregatorConfig struct {
@@ -47,17 +46,15 @@ func convertToInternalWriteOperation(operation *common.WriteOperation) *errplane
 	}
 }
 
-func handler(ep *errplane.Errplane) aggregator.WriteOperationHandler {
-	return func(operation *common.WriteOperation) {
-		if err := ep.SendHttp(convertToInternalWriteOperation(operation)); err != nil {
-			log.Error("Cannot send data to the Errplane. Error: %s", err)
-		}
+func (self *Agent) handler(operation *common.WriteOperation) {
+	if err := self.ep.SendHttp(convertToInternalWriteOperation(operation)); err != nil {
+		log.Error("Cannot send data to the Errplane. Error: %s", err)
 	}
 }
 
-func startUdpListener(ep *errplane.Errplane) {
+func (self *Agent) startUdpListener() {
 	log.Info("Starting data aggregator...")
-	theAggregator := aggregator.NewAggregator(AgentConfig.FlushInterval/time.Second, handler(ep), AgentConfig.ApiKey, AgentConfig.Percentiles, true)
-	udpReceiver := aggregator.NewUdpReceiver(AgentConfig.UdpAddr, handler(ep), theAggregator)
+	theAggregator := aggregator.NewAggregator(self.config.FlushInterval/time.Second, self.handler, self.config.ApiKey, self.config.Percentiles, true)
+	udpReceiver := aggregator.NewUdpReceiver(self.config.UdpAddr, self.handler, theAggregator)
 	udpReceiver.ListenAndReceive()
 }

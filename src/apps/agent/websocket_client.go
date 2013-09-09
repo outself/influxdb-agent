@@ -10,17 +10,22 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-	. "utils"
+	"utils"
 )
 
 type WebsocketClient struct {
 	ws         *websocket.Conn
 	send       chan *agent.Response
 	pingPeriod time.Duration
+	config     *utils.Config
 }
 
-func NewWebsocketClient() *WebsocketClient {
-	cl := &WebsocketClient{send: make(chan *agent.Response), pingPeriod: (AgentConfig.WebsocketPing * 9) / 10}
+func NewWebsocketClient(config *utils.Config) *WebsocketClient {
+	cl := &WebsocketClient{
+		send:       make(chan *agent.Response),
+		config:     config,
+		pingPeriod: (config.WebsocketPing * 9) / 10,
+	}
 	return cl
 }
 
@@ -58,7 +63,7 @@ func (self *WebsocketClient) readPump() {
 			time.Sleep(1 * time.Second)
 			self.connect()
 		} else {
-			self.ws.SetReadDeadline(time.Now().Add(AgentConfig.WebsocketPing))
+			self.ws.SetReadDeadline(time.Now().Add(self.pingPeriod))
 			op, r, err := self.ws.NextReader()
 			if err != nil {
 				log.Error("Error reading from websocket: ", err)
@@ -82,7 +87,7 @@ func (self *WebsocketClient) readPump() {
 					self.send <- r
 				}
 			} else if op == websocket.OpPong {
-				self.ws.SetReadDeadline(time.Now().Add(AgentConfig.WebsocketPing))
+				self.ws.SetReadDeadline(time.Now().Add(self.pingPeriod))
 			}
 		}
 	}
@@ -92,12 +97,12 @@ func (self *WebsocketClient) connect() error {
 	if self.ws != nil {
 		self.ws.Close()
 	}
-	c, err := net.Dial("tcp", AgentConfig.ConfigWebsocket)
+	c, err := net.Dial("tcp", self.config.ConfigWebsocket)
 	if err != nil {
 		log.Error("Dial: %v", err)
 		return err
 	}
-	u, _ := url.Parse("/channel?database=" + AgentConfig.AppKey + AgentConfig.Environment + "&host=" + AgentConfig.Hostname + "&api_key=" + AgentConfig.ApiKey)
+	u, _ := url.Parse("/channel?database=" + self.config.AppKey + self.config.Environment + "&host=" + self.config.Hostname + "&api_key=" + self.config.ApiKey)
 	ws, _, err := websocket.NewClient(c, u, http.Header{}, 1024, 1024)
 	if err != nil {
 		log.Error("NewClient: %v", err)
@@ -106,8 +111,8 @@ func (self *WebsocketClient) connect() error {
 	self.ws = ws
 	if self.ws != nil {
 		t := agent.Response_IDENTIFICATION
-		db := AgentConfig.Database()
-		res := &agent.Response{Type: &t, AgentName: &AgentConfig.Hostname, Database: &db}
+		db := self.config.Database()
+		res := &agent.Response{Type: &t, AgentName: &self.config.Hostname, Database: &db}
 		if data, err := proto.Marshal(res); err == nil {
 			if err := self.ws.WriteMessage(websocket.OpBinary, data); err != nil {
 				log.Error("Couldn't write Identification to Anomalous", err)

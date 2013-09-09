@@ -43,8 +43,18 @@ type AgentStatus struct {
 
 var AgentInfo *AgentConfiguration
 
+type ConfigServiceClient struct {
+	config *Config
+}
+
+func NewConfigServiceClient(config *Config) *ConfigServiceClient {
+	return &ConfigServiceClient{
+		config: config,
+	}
+}
+
 // assume that path starts with /
-func configServerUrl(path string, args ...interface{}) string {
+func (self *ConfigServiceClient) configServerUrl(path string, args ...interface{}) string {
 	separator := ""
 	if path[0] != '/' {
 		separator = "/"
@@ -54,19 +64,19 @@ func configServerUrl(path string, args ...interface{}) string {
 		path = fmt.Sprintf(path, args...)
 	}
 
-	return fmt.Sprintf("http://%s%s%s", AgentConfig.ConfigService, separator, path)
+	return fmt.Sprintf("http://%s%s%s", self.config.ConfigService, separator, path)
 }
 
-func SendCustomPlugins(plugins map[string]*PluginInformation) error {
+func (self *ConfigServiceClient) SendCustomPlugins(plugins map[string]*PluginInformation) error {
 	data, err := json.Marshal(plugins)
 	if err != nil {
 		log.Error("Cannot marshal data to json")
 		return err
 	}
-	database := AgentConfig.Database()
-	hostname := AgentConfig.Hostname
-	apiKey := AgentConfig.ApiKey
-	url := configServerUrl("/databases/%s/agent/%s/custom-plugins?api_key=%s", database, hostname, apiKey)
+	database := self.config.Database()
+	hostname := self.config.Hostname
+	apiKey := self.config.ApiKey
+	url := self.configServerUrl("/databases/%s/agent/%s/custom-plugins?api_key=%s", database, hostname, apiKey)
 	log.Debug("posting to '%s' -- %s", url, data)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
 	if err != nil {
@@ -77,16 +87,16 @@ func SendCustomPlugins(plugins map[string]*PluginInformation) error {
 	return nil
 }
 
-func SendPluginStatus(status *AgentStatus) {
+func (self *ConfigServiceClient) SendPluginStatus(status *AgentStatus) {
 	data, err := json.Marshal(status)
 	if err != nil {
 		log.Error("Cannot marshal data to json")
 		return
 	}
-	database := AgentConfig.Database()
-	hostname := AgentConfig.Hostname
-	apiKey := AgentConfig.ApiKey
-	url := configServerUrl("/databases/%s/agent/%s?api_key=%s", database, hostname, apiKey)
+	database := self.config.Database()
+	hostname := self.config.Hostname
+	apiKey := self.config.ApiKey
+	url := self.configServerUrl("/databases/%s/agent/%s?api_key=%s", database, hostname, apiKey)
 	log.Debug("posting to '%s' -- %s", url, data)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
 	if err != nil {
@@ -96,16 +106,16 @@ func SendPluginStatus(status *AgentStatus) {
 	resp.Body.Close()
 }
 
-func GetMonitoringConfig() (*monitoring.MonitorConfig, error) {
-	database := AgentConfig.Database()
-	hostname := AgentConfig.Hostname
-	apiKey := AgentConfig.ApiKey
+func (self *ConfigServiceClient) GetMonitoringConfig() (*monitoring.MonitorConfig, error) {
+	database := self.config.Database()
+	hostname := self.config.Hostname
+	apiKey := self.config.ApiKey
 
-	if AgentConfig.Hostname == "" {
+	if self.config.Hostname == "" {
 		return nil, fmt.Errorf("Configuration service hostname not configured properly")
 	}
 
-	url := configServerUrl("/databases/%s/agent/%s/monitoring-configuration?api_key=%s", database, hostname, apiKey)
+	url := self.configServerUrl("/databases/%s/agent/%s/monitoring-configuration?api_key=%s", database, hostname, apiKey)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -130,9 +140,9 @@ func GetInstalledPluginsVersion() (string, error) {
 	return string(version), nil
 }
 
-func InstallPlugin(version string) {
-	database := AgentConfig.Database()
-	url := configServerUrl("/databases/%s/plugins/%s", database, version)
+func (self *ConfigServiceClient) InstallPlugin(version string) {
+	database := self.config.Database()
+	url := self.configServerUrl("/databases/%s/plugins/%s", database, version)
 	plugins, err := GetBody(url)
 	if err != nil {
 		log.Error("Cannot download plugin version from url '%s'. Error: %s", url, err)
@@ -165,9 +175,9 @@ func InstallPlugin(version string) {
 	}
 }
 
-func GetCurrentPluginsVersion() (string, error) {
-	database := AgentConfig.Database()
-	url := configServerUrl("/databases/%s/plugins/current_version", database)
+func (self *ConfigServiceClient) GetCurrentPluginsVersion() (string, error) {
+	database := self.config.Database()
+	url := self.configServerUrl("/databases/%s/plugins/current_version", database)
 	version, err := GetBody(url)
 	if err != nil {
 		return "", err
@@ -175,8 +185,8 @@ func GetCurrentPluginsVersion() (string, error) {
 	return string(version), nil
 }
 
-func GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
-	config, err := GetPluginsToRun()
+func (self *ConfigServiceClient) GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
+	config, err := self.GetPluginsToRun()
 	if err != nil {
 		return nil, err
 	}
@@ -205,12 +215,12 @@ func GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
 	return returnedProcesses, nil
 }
 
-func GetPluginsToRun() (*AgentConfiguration, error) {
+func (self *ConfigServiceClient) GetPluginsToRun() (*AgentConfiguration, error) {
 	config := &AgentConfiguration{}
-	database := AgentConfig.Database()
-	hostname := AgentConfig.Hostname
-	apiKey := AgentConfig.ApiKey
-	url := configServerUrl("/databases/%s/agent/%s/configuration?api_key=%s", database, hostname, apiKey)
+	database := self.config.Database()
+	hostname := self.config.Hostname
+	apiKey := self.config.ApiKey
+	url := self.configServerUrl("/databases/%s/agent/%s/configuration?api_key=%s", database, hostname, apiKey)
 	body, err := GetBody(url)
 	if err != nil {
 		return nil, err

@@ -46,16 +46,14 @@ type Detector interface {
 }
 
 type AnomaliesDetector struct {
-	config   *monitoring.MonitorConfig
-	reporter Reporter
+	monitoringConfig *monitoring.MonitorConfig
+	agentConfig      *utils.Config
+	configClient     *utils.ConfigServiceClient
+	reporter         Reporter
 }
 
-type Reporter interface {
-	Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions) error
-}
-
-func NewAnomaliesDetector(reporter Reporter) *AnomaliesDetector {
-	detector := &AnomaliesDetector{nil, reporter}
+func NewAnomaliesDetector(agentConfig *utils.Config, configClient *utils.ConfigServiceClient, reporter Reporter) *AnomaliesDetector {
+	detector := &AnomaliesDetector{nil, agentConfig, configClient, reporter}
 	go detector.updateMonitorConfig()
 	return detector
 }
@@ -63,23 +61,23 @@ func NewAnomaliesDetector(reporter Reporter) *AnomaliesDetector {
 func (self *AnomaliesDetector) updateMonitorConfig() {
 	for {
 		var err error
-		config, err := utils.GetMonitoringConfig()
+		config, err := self.configClient.GetMonitoringConfig()
 		if err != nil {
 			log.Error("Failed to get monitoring configuration. Error: %s", err)
 		} else {
-			self.config = config
+			self.monitoringConfig = config
 		}
-		time.Sleep(utils.AgentConfig.Sleep)
+		time.Sleep(self.agentConfig.Sleep)
 	}
 }
 
 func (self *AnomaliesDetector) filesToMonitor() []string {
-	if self.config == nil {
+	if self.monitoringConfig == nil {
 		return nil
 	}
 
 	paths := make([]string, 0)
-	for _, monitor := range self.config.Monitors {
+	for _, monitor := range self.monitoringConfig.Monitors {
 		if monitor.LogName == "" {
 			continue
 		}
@@ -89,11 +87,11 @@ func (self *AnomaliesDetector) filesToMonitor() []string {
 }
 
 func (self *AnomaliesDetector) Report(metricName string, value float64, context string, dimensions errplane.Dimensions) {
-	if self.config == nil {
+	if self.monitoringConfig == nil {
 		return
 	}
 
-	for _, monitor := range self.config.Monitors {
+	for _, monitor := range self.monitoringConfig.Monitors {
 		if monitor.StatName == metricName {
 			self.reportMetricEvent(monitor, value)
 			continue
@@ -215,11 +213,11 @@ func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, va
 func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string, newLines []string) {
 	// log.Debug("Inside ReportLogEvent")
 
-	if self.config == nil {
+	if self.monitoringConfig == nil {
 		return
 	}
 
-	for _, monitor := range self.config.Monitors {
+	for _, monitor := range self.monitoringConfig.Monitors {
 		if monitor.LogName != filename {
 			continue
 		}

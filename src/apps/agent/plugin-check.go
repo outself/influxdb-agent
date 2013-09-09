@@ -11,14 +11,14 @@ import (
 	. "utils"
 )
 
-func checkNewPlugins() {
+func (self *Agent) checkNewPlugins() {
 	log.Info("Checking for new plugins and for potentially useful plugins")
 
 	for {
-		plugins := getAvailablePlugins()
+		plugins := self.getAvailablePlugins()
 
 		// filter out plugins that are already installed
-		pluginsToRun, err := GetPluginsToRun()
+		pluginsToRun, err := self.configClient.GetPluginsToRun()
 		pluginsToCheck := make(map[string]*PluginMetadata)
 		if err == nil {
 			for name, plugin := range plugins {
@@ -51,26 +51,26 @@ func checkNewPlugins() {
 		}
 
 		// update the agent information
-		SendPluginStatus(&AgentStatus{availablePlugins, time.Now().Unix()})
+		self.configClient.SendPluginStatus(&AgentStatus{availablePlugins, time.Now().Unix()})
 
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(self.config.Sleep)
 	}
 }
 
-func getAvailablePlugins() map[string]*PluginMetadata {
+func (self *Agent) getAvailablePlugins() map[string]*PluginMetadata {
 	version, err := GetInstalledPluginsVersion()
 	if err != nil && !os.IsNotExist(err) {
 		return nil
 	}
 
-	latestVersion, err := GetCurrentPluginsVersion()
+	latestVersion, err := self.configClient.GetCurrentPluginsVersion()
 	if err != nil {
 		log.Error("Cannot current plugins version. Error: %s", err)
 		return nil
 	}
 
 	if string(version) != string(latestVersion) {
-		InstallPlugin(latestVersion)
+		self.configClient.InstallPlugin(latestVersion)
 	}
 
 	pluginsDir := path.Join(PLUGINS_DIR, string(latestVersion))
@@ -104,7 +104,7 @@ func getAvailablePlugins() map[string]*PluginMetadata {
 			customPluginsInfo[name] = info
 		}
 
-		if err := SendCustomPlugins(customPluginsInfo); err != nil {
+		if err := self.configClient.SendCustomPlugins(customPluginsInfo); err != nil {
 			log.Error("Cannot send custom plugins information. Error: %s", err)
 		}
 	}

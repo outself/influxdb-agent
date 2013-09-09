@@ -7,7 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"os"
 	"time"
-	"utils"
 )
 
 type DatastoreSuite struct {
@@ -102,7 +101,7 @@ func (self *DatastoreSuite) TestMultipleDaysAndToday(c *C) {
 func (self *DatastoreSuite) TestSnapshots(c *C) {
 	timeseriesDb, err := NewTimeseriesDatastore(self.dbDir)
 	c.Assert(err, IsNil)
-	db, err := NewSnapshotDatastore(self.dbDir, timeseriesDb)
+	db, err := NewSnapshotDatastore(self.dbDir, "", timeseriesDb)
 	c.Assert(err, IsNil)
 	c.Assert(db, NotNil)
 	id := "snapshot1"
@@ -128,14 +127,12 @@ func (self *DatastoreSuite) TestSnapshots(c *C) {
 func (self *DatastoreSuite) TestSnapshotTaking(c *C) {
 	timeseriesDb, err := NewTimeseriesDatastore(self.dbDir)
 	c.Assert(err, IsNil)
-	db, err := NewSnapshotDatastore(self.dbDir, timeseriesDb)
+	database := "app4you2loveproduction"
+	db, err := NewSnapshotDatastore(self.dbDir, database, timeseriesDb)
 	c.Assert(err, IsNil)
 	c.Assert(db, NotNil)
 
 	startTime := time.Now().Add(-5 * time.Minute)
-
-	utils.AgentConfig.AppKey = "app4you2love"
-	utils.AgentConfig.Environment = "production"
 
 	pointTime := startTime.Add(2 * time.Minute).Unix()
 	var sequence uint32 = 1
@@ -148,10 +145,10 @@ func (self *DatastoreSuite) TestSnapshotTaking(c *C) {
 			Value:          &value,
 		},
 	}
-	err = timeseriesDb.WritePoints(utils.AgentConfig.Database(), "timeseries1", points)
+	err = timeseriesDb.WritePoints(database, "timeseries1", points)
 	c.Assert(err, IsNil)
 	value = 2.0
-	err = timeseriesDb.WritePoints(utils.AgentConfig.Database(), "timeseries2", points)
+	err = timeseriesDb.WritePoints(database, "timeseries2", points)
 	c.Assert(err, IsNil)
 
 	snapshot, err := db.TakeSnapshot([]string{".*"}, startTime)

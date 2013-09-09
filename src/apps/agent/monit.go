@@ -39,7 +39,7 @@ func getProcesses() (ProcsByName, ProcsByPid) {
 	return processes, processesByPid
 }
 
-func monitorProceses(ep *errplane.Errplane, ch chan error) {
+func (self *Agent) monitorProceses(ch chan error) {
 
 	var previousProcessesSnapshot map[string]*ProcStat
 	var previousProcessesSnapshotByPid map[int]*ProcStat
@@ -49,7 +49,7 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 	for {
 		// get the list of monitored processes from the config service
 		var err error
-		monitoredProcesses, err = GetMonitoredProcesses(monitoredProcesses)
+		monitoredProcesses, err = self.configClient.GetMonitoredProcesses(monitoredProcesses)
 		if err != nil {
 			log.Error("Error while getting the list of processes to monitor. Error: %s", err)
 		}
@@ -67,10 +67,10 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 
 				if status != monitoredProcess.LastStatus {
 					if status == UP {
-						reportProcessUp(ep, monitoredProcess)
+						self.reportProcessUp(monitoredProcess)
 					} else {
 						// holy shit, process down!
-						reportProcessDown(ep, monitoredProcess)
+						self.reportProcessDown(monitoredProcess)
 					}
 				}
 
@@ -91,8 +91,8 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 				for _, monitoredProcess := range monitoredProcesses {
 					if processMatches(monitoredProcess, stat) {
 						i += 1
-						reportProcessCpuUsage(ep, monitoredProcess, &stat, now, false, ch)
-						reportProcessMemUsage(ep, monitoredProcess, &stat, now, false, ch)
+						self.reportProcessCpuUsage(monitoredProcess, &stat, now, false, ch)
+						self.reportProcessMemUsage(monitoredProcess, &stat, now, false, ch)
 					}
 				}
 			}
@@ -101,7 +101,7 @@ func monitorProceses(ep *errplane.Errplane, ch chan error) {
 		previousProcessesSnapshot = processes
 		previousProcessesSnapshotByPid = processesByPid
 
-		time.Sleep(AgentConfig.MonitoredSleep)
+		time.Sleep(self.config.MonitoredSleep)
 	}
 }
 
@@ -152,9 +152,9 @@ func getProcessStatus(process *Process, currentProcessesSnapshot ProcsByPid) Sta
 	return DOWN
 }
 
-func reportProcessDown(ep *errplane.Errplane, process *Process) {
+func (self *Agent) reportProcessDown(process *Process) {
 	log.Info("Process %s went down", process.Name)
-	reportProcessEvent(ep, process, process.Regex, "down")
+	self.reportProcessEvent(process, process.Regex, "down")
 }
 
 func runCmd(cmd, user string) error {
@@ -208,19 +208,19 @@ func killProcess(process *Process) {
 	log.Error("Couldn't kill process '%s'", process.Name)
 }
 
-func reportProcessUp(ep *errplane.Errplane, process *Process) {
+func (self *Agent) reportProcessUp(process *Process) {
 	log.Info("Process %s came back up reporting event", process.Name)
-	reportProcessEvent(ep, process, process.Regex, "up")
+	self.reportProcessEvent(process, process.Regex, "up")
 }
 
-func reportProcessEvent(ep *errplane.Errplane, process *Process, regex, status string) {
+func (self *Agent) reportProcessEvent(process *Process, regex, status string) {
 	if _, ok := snoozedProcesses.Get(process.Nickname); ok {
 		log.Debug("Not reporting %s event for '%s' since it is snoozed", status, process.Nickname)
 		return
 	}
 
-	ep.Report("server.process.monitoring", 1.0, time.Now(), "", errplane.Dimensions{
-		"host":     AgentConfig.Hostname,
+	self.Report("server.process.monitoring", 1.0, time.Now(), "", errplane.Dimensions{
+		"host":     self.config.Hostname,
 		"nickname": process.Nickname,
 		"status":   status,
 	})

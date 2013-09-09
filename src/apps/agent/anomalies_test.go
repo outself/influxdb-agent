@@ -9,7 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"os"
 	"time"
-	. "utils"
+	"utils"
 )
 
 type LogMonitoringSuite struct {
@@ -34,17 +34,21 @@ type ReporterMock struct {
 	events []*MockedEvent
 }
 
-func (self *ReporterMock) Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions) error {
+func (self *ReporterMock) Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions) {
 	self.events = append(self.events, &MockedEvent{metric, value, timestamp, context, dimensions})
-	return nil
 }
 
 func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 	self.reporter = &ReporterMock{}
-	self.detector = NewAnomaliesDetector(self.reporter)
+	config := &utils.Config{
+		Sleep: 1 * time.Second,
+	}
+	agent, err := NewAgent(config)
+	c.Assert(err, IsNil)
+	configClient := utils.NewConfigServiceClient(config)
+	self.detector = NewAnomaliesDetector(config, configClient, self.reporter)
 	ioutil.WriteFile("/tmp/foo.txt", nil, 0644)
-	AgentConfig.Sleep = 1 * time.Second
-	go watchLogFile(self.detector)
+	go agent.watchLogFile(self.detector)
 }
 
 func (self *LogMonitoringSuite) SetUpTest(c *C) {
@@ -93,7 +97,7 @@ func (self *LogMonitoringSuite) SetUpTest(c *C) {
 			},
 		},
 	}
-	self.detector.config = config
+	self.detector.monitoringConfig = config
 	self.reporter.events = nil
 }
 

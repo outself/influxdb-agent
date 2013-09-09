@@ -18,14 +18,14 @@ const (
 	PORT_FILE = "/tmp/errplane-agent.port"
 )
 
-func startLocalServer() {
+func (self *Agent) startLocalServer() {
 	snoozedProcesses = cache.New(0, 0)
 
 	m := pat.New()
 
-	m.Get("/stop_monitoring/:process", http.HandlerFunc(stopMonitoring))
-	m.Get("/start_monitoring/:process", http.HandlerFunc(startMonitoring))
-	m.Get("/restart_process/:process", http.HandlerFunc(restartProcess))
+	m.Get("/stop_monitoring/:process", http.HandlerFunc(self.stopMonitoring))
+	m.Get("/start_monitoring/:process", http.HandlerFunc(self.startMonitoring))
+	m.Get("/restart_process/:process", http.HandlerFunc(self.restartProcess))
 
 	// Register this pat with the default serve mux so that other packages
 	// may also be exported. (i.e. /debug/pprof/*)
@@ -51,8 +51,8 @@ func startLocalServer() {
 	}
 }
 
-func getProcess(processName string) (*Process, error) {
-	monitoredProcesses, err := GetMonitoredProcesses(nil)
+func (self *Agent) getProcess(processName string) (*Process, error) {
+	monitoredProcesses, err := self.configClient.GetMonitoredProcesses(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +72,10 @@ func (self *InvalidProcessName) Error() string {
 	return "Invalid process name"
 }
 
-func snoozeProcess(processName string, duration time.Duration) error {
+func (self *Agent) snoozeProcess(processName string, duration time.Duration) error {
 	log.Info("Trying to snooze %s", processName)
 
-	process, err := getProcess(processName)
+	process, err := self.getProcess(processName)
 	if err != nil {
 		return err
 	}
@@ -87,10 +87,10 @@ func snoozeProcess(processName string, duration time.Duration) error {
 	return &InvalidProcessName{}
 }
 
-func unsnoozeProcess(processName string) error {
+func (self *Agent) unsnoozeProcess(processName string) error {
 	log.Info("Trying to unsnooze %s", processName)
 
-	process, err := getProcess(processName)
+	process, err := self.getProcess(processName)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func unsnoozeProcess(processName string) error {
 	return &InvalidProcessName{}
 }
 
-func stopMonitoring(w http.ResponseWriter, req *http.Request) {
+func (self *Agent) stopMonitoring(w http.ResponseWriter, req *http.Request) {
 	var err error
 	// make sure that we're monitoring that process
 	processName := req.URL.Query().Get(":process")
@@ -116,7 +116,7 @@ func stopMonitoring(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	if err := snoozeProcess(processName, timeDuration); err != nil {
+	if err := self.snoozeProcess(processName, timeDuration); err != nil {
 		log.Warn("Error while snoozing process. Error: %s", err)
 		if _, ok := err.(*InvalidProcessName); ok {
 			w.WriteHeader(http.StatusBadRequest)
@@ -129,10 +129,10 @@ func stopMonitoring(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func startMonitoring(w http.ResponseWriter, req *http.Request) {
+func (self *Agent) startMonitoring(w http.ResponseWriter, req *http.Request) {
 	processName := req.URL.Query().Get(":process")
 
-	if err := unsnoozeProcess(processName); err != nil {
+	if err := self.unsnoozeProcess(processName); err != nil {
 		log.Warn("Error while unsnoozing process. Error: %s", err)
 		if _, ok := err.(*InvalidProcessName); ok {
 			w.WriteHeader(http.StatusBadRequest)
@@ -145,10 +145,10 @@ func startMonitoring(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func restartProcess(w http.ResponseWriter, req *http.Request) {
+func (self *Agent) restartProcess(w http.ResponseWriter, req *http.Request) {
 	processName := req.URL.Query().Get(":process")
 
-	process, err := getProcess(processName)
+	process, err := self.getProcess(processName)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

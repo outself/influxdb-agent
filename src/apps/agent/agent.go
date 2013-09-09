@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	. "utils"
+	"utils"
 )
 
 func main() {
@@ -23,13 +23,7 @@ func main() {
 	pidFile := flag.String("pidfile", "/data/errplane-agent/shared/errplane-agent.pid", "The agent pid file")
 	flag.Parse()
 
-	err := InitConfig(*configFile)
-	if err != nil {
-		fmt.Printf("Error while reading configuration. Error: %s", err)
-		os.Exit(1)
-	}
-
-	err = initLog()
+	config, err := utils.ParseConfig(*configFile)
 	if err != nil {
 		fmt.Printf("Error while reading configuration. Error: %s", err)
 		os.Exit(1)
@@ -44,37 +38,76 @@ func main() {
 		fmt.Printf("Error while writing to file %s. Error: %s", *pidFile, err)
 	}
 
-	ep := errplane.New(AgentConfig.AppKey, AgentConfig.Environment, AgentConfig.ApiKey)
-	ep.SetHttpHost(AgentConfig.HttpHost)
-	ep.SetUdpAddr(AgentConfig.UdpHost)
-	if AgentConfig.Proxy != "" {
-		ep.SetProxy(AgentConfig.Proxy)
+	agent, err := NewAgent(config)
+	if err != nil {
+		fmt.Printf("Error while initializing the agent. Error: %s", err)
+		os.Exit(1)
 	}
-	ch := make(chan error)
-	go memStats(ep, ch)
-	go cpuStats(ep, ch)
-	go networkStats(ep, ch)
-	go diskSpaceStats(ep, ch)
-	go ioStats(ep, ch)
-	go procStats(ep, ch)
-	go monitorProceses(ep, ch)
-	go monitorPlugins(ep)
-	go checkNewPlugins()
-	go startUdpListener(ep)
-	go startLocalServer()
-	detector := NewAnomaliesDetector(ep)
-	go watchLogFile(detector)
-	log.Info("Agent started successfully")
-	err = <-ch
-	log.Error("Data collection stopped unexpectedly. Error: %s", err)
-	log.Close()
-	time.Sleep(1 * time.Second) // give the logger a chance to close and write to the file
-	return
+	if err := agent.startAgent(); err != nil {
+		log.Error("Error occured while running the agent. Error: %s", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }
 
-func initLog() error {
+type Reporter interface {
+	Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions)
+}
+
+type Agent struct {
+	config       *utils.Config
+	configClient *utils.ConfigServiceClient
+	ep           *errplane.Errplane
+}
+
+func NewAgent(config *utils.Config) (*Agent, error) {
+	ep := errplane.New(config.AppKey, config.Environment, config.ApiKey)
+	ep.SetHttpHost(config.HttpHost)
+	ep.SetUdpAddr(config.UdpHost)
+	if config.Proxy != "" {
+		ep.SetProxy(config.Proxy)
+	}
+
+	configClient := utils.NewConfigServiceClient(config)
+
+	agent := &Agent{
+		config:       config,
+		configClient: configClient,
+		ep:           ep,
+	}
+
+	return agent, nil
+}
+
+func (self *Agent) startAgent() error {
+	err := self.initLog()
+	if err != nil {
+		return utils.WrapInErrplaneError(err)
+	}
+
+	ch := make(chan error)
+	go self.memStats(ch)
+	go self.cpuStats(ch)
+	go self.networkStats(ch)
+	go self.diskSpaceStats(ch)
+	go self.ioStats(ch)
+	go self.procStats(ch)
+	go self.monitorProceses(ch)
+	go self.monitorPlugins()
+	go self.checkNewPlugins()
+	go self.startUdpListener()
+	go self.startLocalServer()
+	detector := NewAnomaliesDetector(self.config, self.configClient, self)
+	go self.watchLogFile(detector)
+	log.Info("Agent started successfully")
+	err = <-ch
+	time.Sleep(1 * time.Second) // give the logger a chance to close and write to the file
+	return utils.WrapInErrplaneError(err)
+}
+
+func (self *Agent) initLog() error {
 	level := log.DEBUG
-	switch AgentConfig.LogLevel {
+	switch self.config.LogLevel {
 	case "info":
 		level = log.INFO
 	case "warn":
@@ -83,10 +116,10 @@ func initLog() error {
 		level = log.ERROR
 	}
 
-	log.AddFilter("file", level, log.NewFileLogWriter(AgentConfig.LogFile, false))
+	log.AddFilter("file", level, log.NewFileLogWriter(self.config.LogFile, false))
 
 	var err error
-	os.Stderr, err = os.OpenFile(AgentConfig.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	os.Stderr, err = os.OpenFile(self.config.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}
@@ -95,15 +128,14 @@ func initLog() error {
 	return nil
 }
 
-func report(ep *errplane.Errplane, metric string, value float64, timestamp time.Time, dimensions errplane.Dimensions, ch chan error) bool {
-	err := ep.Report(metric, value, timestamp, "", dimensions)
+func (self *Agent) Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions) {
+	err := self.ep.Report(metric, value, timestamp, "", dimensions)
 	if err != nil {
 		log.Error("Error while sending report. Error: %s", err)
 	}
-	return false
 }
 
-func procStats(ep *errplane.Errplane, ch chan error) {
+func (self *Agent) procStats(ch chan error) {
 	var previousStats map[int]*ProcStat
 
 	for {
@@ -112,39 +144,39 @@ func procStats(ep *errplane.Errplane, ch chan error) {
 		if previousStats != nil {
 			mergedStats := mergeStats(previousStats, procStats)
 
-			n := int(math.Min(float64(AgentConfig.TopNProcesses), float64(len(mergedStats))))
+			n := int(math.Min(float64(self.config.TopNProcesses), float64(len(mergedStats))))
 
 			sort.Sort(ProcStatsSortableByCpu(mergedStats))
 			topNByCpu := mergedStats[0:n]
 			now := time.Now()
 			for _, stat := range topNByCpu {
-				if reportProcessCpuUsage(ep, nil, &stat, now, true, ch) {
+				if self.reportProcessCpuUsage(nil, &stat, now, true, ch) {
 					return
 				}
 			}
 			sort.Sort(ProcStatsSortableByMem(mergedStats))
 			topNByMem := mergedStats[0:n]
 			for _, stat := range topNByMem {
-				if reportProcessMemUsage(ep, nil, &stat, now, true, ch) {
+				if self.reportProcessMemUsage(nil, &stat, now, true, ch) {
 					return
 				}
 			}
 		}
 
 		previousStats = procStats
-		time.Sleep(AgentConfig.TopNSleep)
+		time.Sleep(self.config.TopNSleep)
 	}
 }
 
-func reportProcessCpuUsage(ep *errplane.Errplane, monitoredProcess *Process, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
-	return reportProcessMetric(ep, monitoredProcess, stat, "cpu", now, top, ch)
+func (self *Agent) reportProcessCpuUsage(monitoredProcess *utils.Process, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
+	return self.reportProcessMetric(monitoredProcess, stat, "cpu", now, top, ch)
 }
 
-func reportProcessMemUsage(ep *errplane.Errplane, monitoredProcess *Process, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
-	return reportProcessMetric(ep, monitoredProcess, stat, "mem", now, top, ch)
+func (self *Agent) reportProcessMemUsage(monitoredProcess *utils.Process, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
+	return self.reportProcessMetric(monitoredProcess, stat, "mem", now, top, ch)
 }
 
-func reportProcessMetric(ep *errplane.Errplane, monitoredProcess *Process, stat *MergedProcStat, metricName string, now time.Time, top bool, ch chan error) bool {
+func (self *Agent) reportProcessMetric(monitoredProcess *utils.Process, stat *MergedProcStat, metricName string, now time.Time, top bool, ch chan error) bool {
 	var value float64
 	var metric string
 
@@ -168,37 +200,35 @@ func reportProcessMetric(ep *errplane.Errplane, monitoredProcess *Process, stat 
 	if monitoredProcess != nil {
 		dimensions = errplane.Dimensions{
 			"nickname": monitoredProcess.Nickname,
-			"host":     AgentConfig.Hostname,
+			"host":     self.config.Hostname,
 		}
 	} else {
 		dimensions = errplane.Dimensions{
 			"pid":     strconv.Itoa(stat.pid),
 			"name":    stat.name,
 			"cmdline": strings.Join(stat.args, " "),
-			"host":    AgentConfig.Hostname,
+			"host":    self.config.Hostname,
 		}
 	}
 
-	if report(ep, metric, value, now, dimensions, ch) {
-		return true
-	}
+	self.Report(metric, value, now, "", dimensions)
 	return false
 }
 
-func ioStats(ep *errplane.Errplane, ch chan error) {
+func (self *Agent) ioStats(ch chan error) {
 	prevTimeStamp := time.Now()
-	var prevDiskUsages []DiskUsage
+	var prevDiskUsages []utils.DiskUsage
 
 	for {
 		timestamp := time.Now()
-		diskUsages, err := GetDiskUsages()
+		diskUsages, err := utils.GetDiskUsages()
 		if err != nil {
 			ch <- err
 			return
 		}
 
 		if prevDiskUsages != nil {
-			devNameToDiskUsage := make(map[string]*DiskUsage)
+			devNameToDiskUsage := make(map[string]*utils.DiskUsage)
 			for idx, prevDiskUsage := range prevDiskUsages {
 				devNameToDiskUsage[prevDiskUsage.Name] = &prevDiskUsages[idx]
 			}
@@ -213,21 +243,19 @@ func ioStats(ep *errplane.Errplane, ch chan error) {
 				millisecondsElapsed := timestamp.Sub(prevTimeStamp).Nanoseconds() / int64(time.Millisecond)
 				utilization := float64(diskUsage.TotalIOTime-prevDiskUsage.TotalIOTime) / float64(millisecondsElapsed) * 100
 
-				dimensions := errplane.Dimensions{"host": AgentConfig.Hostname, "device": diskUsage.Name}
+				dimensions := errplane.Dimensions{"host": self.config.Hostname, "device": diskUsage.Name}
 
-				if report(ep, "server.stats.io.utilization", float64(utilization), timestamp, dimensions, ch) {
-					return
-				}
+				self.Report("server.stats.io.utilization", float64(utilization), timestamp, "", dimensions)
 			}
 		}
 
 		prevDiskUsages = diskUsages
 		prevTimeStamp = timestamp
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(self.config.Sleep)
 	}
 }
 
-func memStats(ep *errplane.Errplane, ch chan error) {
+func (self *Agent) memStats(ch chan error) {
 	mem := sigar.Mem{}
 	swap := sigar.Swap{}
 
@@ -243,7 +271,7 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 			return
 		}
 
-		dimensions := errplane.Dimensions{"host": AgentConfig.Hostname}
+		dimensions := errplane.Dimensions{"host": self.config.Hostname}
 		timestamp := time.Now()
 
 		used := float64(mem.Used)
@@ -256,25 +284,21 @@ func memStats(ep *errplane.Errplane, ch chan error) {
 			swapUsed := float64(swap.Used)
 			swapUsedPercentage := swapUsed / float64(swap.Total) * 100
 
-			if report(ep, "server.stats.swap.used", swapUsed, timestamp, dimensions, ch) ||
-				report(ep, "server.stats.swap.used_percentage", swapUsedPercentage, timestamp, dimensions, ch) {
-				return
-			}
+			self.Report("server.stats.swap.used", swapUsed, timestamp, "", dimensions)
+			self.Report("server.stats.swap.used_percentage", swapUsedPercentage, timestamp, "", dimensions)
 		}
 
-		if report(ep, "server.stats.memory.free", float64(mem.Free), timestamp, dimensions, ch) ||
-			report(ep, "server.stats.memory.used", used, timestamp, dimensions, ch) ||
-			report(ep, "server.stats.memory.actual_used", actualUsed, timestamp, dimensions, ch) ||
-			report(ep, "server.stats.memory.used_percentage", usedPercentage, timestamp, dimensions, ch) ||
-			report(ep, "server.stats.swap.free", float64(swap.Free), timestamp, dimensions, ch) {
-			return
-		}
+		self.Report("server.stats.memory.free", float64(mem.Free), timestamp, "", dimensions)
+		self.Report("server.stats.memory.used", used, timestamp, "", dimensions)
+		self.Report("server.stats.memory.actual_used", actualUsed, timestamp, "", dimensions)
+		self.Report("server.stats.memory.used_percentage", usedPercentage, timestamp, "", dimensions)
+		self.Report("server.stats.swap.free", float64(swap.Free), timestamp, "", dimensions)
 
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(self.config.Sleep)
 	}
 }
 
-func diskSpaceStats(ep *errplane.Errplane, ch chan error) {
+func (self *Agent) diskSpaceStats(ch chan error) {
 	fslist := sigar.FileSystemList{}
 
 	for {
@@ -288,21 +312,19 @@ func diskSpaceStats(ep *errplane.Errplane, ch chan error) {
 			usage := sigar.FileSystemUsage{}
 			usage.Get(dir_name)
 
-			dimensions := errplane.Dimensions{"host": AgentConfig.Hostname, "device": fs.DevName}
+			dimensions := errplane.Dimensions{"host": self.config.Hostname, "device": fs.DevName}
 
 			used := float64(usage.Total)
 			usedPercentage := usage.UsePercent()
 
-			if report(ep, "server.stats.disk.used", used, timestamp, dimensions, ch) ||
-				report(ep, "server.stats.disk.used_percentage", usedPercentage, timestamp, dimensions, ch) {
-				return
-			}
+			self.Report("server.stats.disk.used", used, timestamp, "", dimensions)
+			self.Report("server.stats.disk.used_percentage", usedPercentage, timestamp, "", dimensions)
 		}
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(self.config.Sleep)
 	}
 }
 
-func cpuStats(ep *errplane.Errplane, ch chan error) {
+func (self *Agent) cpuStats(ch chan error) {
 	skipFirst := true
 
 	prevCpu := sigar.Cpu{}
@@ -317,7 +339,7 @@ func cpuStats(ep *errplane.Errplane, ch chan error) {
 		}
 
 		if !skipFirst {
-			dimensions := errplane.Dimensions{"host": AgentConfig.Hostname}
+			dimensions := errplane.Dimensions{"host": self.config.Hostname}
 
 			total := float64(cpu.Total() - prevCpu.Total())
 
@@ -329,23 +351,21 @@ func cpuStats(ep *errplane.Errplane, ch chan error) {
 			softirq := float64(cpu.SoftIrq-prevCpu.SoftIrq) / total * 100
 			stolen := float64(cpu.Stolen-prevCpu.Stolen) / total * 100
 
-			if report(ep, "server.stats.cpu.sys", sys, timestamp, dimensions, ch) ||
-				report(ep, "server.stats.cpu.user", user, timestamp, dimensions, ch) ||
-				report(ep, "server.stats.cpu.idle", idle, timestamp, dimensions, ch) ||
-				report(ep, "server.stats.cpu.wait", wait, timestamp, dimensions, ch) ||
-				report(ep, "server.stats.cpu.irq", irq, timestamp, dimensions, ch) ||
-				report(ep, "server.stats.cpu.softirq", softirq, timestamp, dimensions, ch) ||
-				report(ep, "server.stats.cpu.stolen", stolen, timestamp, dimensions, ch) {
-				return
-			}
+			self.Report("server.stats.cpu.sys", sys, timestamp, "", dimensions)
+			self.Report("server.stats.cpu.user", user, timestamp, "", dimensions)
+			self.Report("server.stats.cpu.idle", idle, timestamp, "", dimensions)
+			self.Report("server.stats.cpu.wait", wait, timestamp, "", dimensions)
+			self.Report("server.stats.cpu.irq", irq, timestamp, "", dimensions)
+			self.Report("server.stats.cpu.softirq", softirq, timestamp, "", dimensions)
+			self.Report("server.stats.cpu.stolen", stolen, timestamp, "", dimensions)
 		}
 		skipFirst = false
 		prevCpu = cpu
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(self.config.Sleep)
 	}
 }
 
-func networkStats(ep *errplane.Errplane, ch chan error) {
+func (self *Agent) networkStats(ch chan error) {
 	skipFirst := true
 
 	prevNetwork := NetworkUtilization{}
@@ -362,7 +382,7 @@ func networkStats(ep *errplane.Errplane, ch chan error) {
 		if !skipFirst {
 			for name, utilization := range network {
 
-				dimensions := errplane.Dimensions{"host": AgentConfig.Hostname, "device": name}
+				dimensions := errplane.Dimensions{"host": self.config.Hostname, "device": name}
 
 				rxBytes := float64(utilization.rxBytes - prevNetwork[name].rxBytes)
 				rxPackets := float64(utilization.rxPackets - prevNetwork[name].rxPackets)
@@ -374,20 +394,18 @@ func networkStats(ep *errplane.Errplane, ch chan error) {
 				txDroppedPackets := float64(utilization.txDroppedPackets - prevNetwork[name].txDroppedPackets)
 				txErrors := float64(utilization.txErrors - prevNetwork[name].txErrors)
 
-				if report(ep, "server.stats.network.rxBytes", rxBytes, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.rxPackets", rxPackets, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.rxDropped", rxDroppedPackets, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.rxErrors", rxErrors, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.txBytes", txBytes, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.txPackets", txPackets, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.txDropped", txDroppedPackets, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.txErrors", txErrors, timestamp, dimensions, ch) {
-					return
-				}
+				self.Report("server.stats.network.rxBytes", rxBytes, timestamp, "", dimensions)
+				self.Report("server.stats.network.rxPackets", rxPackets, timestamp, "", dimensions)
+				self.Report("server.stats.network.rxDropped", rxDroppedPackets, timestamp, "", dimensions)
+				self.Report("server.stats.network.rxErrors", rxErrors, timestamp, "", dimensions)
+				self.Report("server.stats.network.txBytes", txBytes, timestamp, "", dimensions)
+				self.Report("server.stats.network.txPackets", txPackets, timestamp, "", dimensions)
+				self.Report("server.stats.network.txDropped", txDroppedPackets, timestamp, "", dimensions)
+				self.Report("server.stats.network.txErrors", txErrors, timestamp, "", dimensions)
 			}
 		}
 		skipFirst = false
 		prevNetwork = network
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(self.config.Sleep)
 	}
 }

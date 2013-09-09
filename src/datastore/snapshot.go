@@ -15,10 +15,11 @@ import (
 
 type SnapshotDatastore struct {
 	CommonDatastore
+	database            string
 	timeseriesDatastore *TimeseriesDatastore
 }
 
-func NewSnapshotDatastore(dir string, timeseriesDatastore *TimeseriesDatastore) (*SnapshotDatastore, error) {
+func NewSnapshotDatastore(dir string, database string, timeseriesDatastore *TimeseriesDatastore) (*SnapshotDatastore, error) {
 	writeOptions := levigo.NewWriteOptions()
 	readOptions := levigo.NewReadOptions()
 	datastore := &SnapshotDatastore{
@@ -29,6 +30,7 @@ func NewSnapshotDatastore(dir string, timeseriesDatastore *TimeseriesDatastore) 
 			readLock:     sync.Mutex{},
 		},
 		timeseriesDatastore: timeseriesDatastore,
+		database:            database,
 	}
 	// don't use one file per day
 	if err := datastore.openDb(-1); err != nil {
@@ -71,7 +73,7 @@ func (self *SnapshotDatastore) TakeSnapshot(relatedMetricsRegex []string, start 
 			}
 		}
 	}
-	self.timeseriesDatastore.ReadSeriesIndex(utils.AgentConfig.Database(), 0, start.Unix(), foo)
+	self.timeseriesDatastore.ReadSeriesIndex(self.database, 0, start.Unix(), foo)
 	uuid, err := uuid.NewV4()
 	if err != nil {
 		return nil, err
@@ -88,7 +90,7 @@ func (self *SnapshotDatastore) TakeSnapshot(relatedMetricsRegex []string, start 
 			return nil
 		}
 		params := &GetParams{
-			database:   utils.AgentConfig.Database(),
+			database:   self.database,
 			timeSeries: metric,
 			startTime:  start.Unix(),
 		}

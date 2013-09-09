@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	. "utils"
 )
 
 type LogFile struct {
@@ -32,7 +31,7 @@ func getSize(filename string) (int64, error) {
 	return stat.Size(), nil
 }
 
-func watchLogFile(detector Detector) {
+func (self *Agent) watchLogFile(detector Detector) {
 	logFiles = make(map[string]*LogFile)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -139,7 +138,7 @@ func watchLogFile(detector Detector) {
 			watcher.RemoveWatch(path)
 		}
 
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(self.config.Sleep)
 	}
 
 	done := make(chan bool)

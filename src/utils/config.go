@@ -43,19 +43,19 @@ func (self *Config) Database() string {
 	return self.AppKey + self.Environment
 }
 
-var AgentConfig Config
+func ParseConfig(path string) (*Config, error) {
+	config := &Config{}
 
-func InitConfig(path string) error {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = goyaml.Unmarshal(content, &AgentConfig)
+	err = goyaml.Unmarshal(content, config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	AgentConfig.Hostname, err = os.Hostname()
+	config.Hostname, err = os.Hostname()
 	if err != nil {
 		fmt.Printf("Cannot determine hostname. Error: %s\n", err)
 		os.Exit(1)
@@ -64,31 +64,31 @@ func InitConfig(path string) error {
 	// setPluginDefaults()
 	// setProcessesDefaults()
 
-	AgentConfig.Sleep, err = time.ParseDuration(AgentConfig.RawSleep)
+	config.Sleep, err = time.ParseDuration(config.RawSleep)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	AgentConfig.FlushInterval, err = time.ParseDuration(AgentConfig.RawFlushInterval)
+	config.FlushInterval, err = time.ParseDuration(config.RawFlushInterval)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	AgentConfig.TopNSleep, err = time.ParseDuration(AgentConfig.RawTopNSleep)
+	config.TopNSleep, err = time.ParseDuration(config.RawTopNSleep)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	AgentConfig.WebsocketPing, err = time.ParseDuration(AgentConfig.RawWebsocketPing)
+	config.WebsocketPing, err = time.ParseDuration(config.RawWebsocketPing)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	AgentConfig.MonitoredSleep, err = time.ParseDuration(AgentConfig.RawMonitoredSleep)
+	config.MonitoredSleep, err = time.ParseDuration(config.RawMonitoredSleep)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// for _, process := range AgentConfig.MonitoredProcesses {
+	// for _, process := range config.MonitoredProcesses {
 	// 	process.CompiledRegex, err = regexp.Compile(process.Regex)
 	// 	if err != nil {
 	// 		return err
@@ -103,7 +103,7 @@ func InitConfig(path string) error {
 	// 	}
 	// }
 
-	// for _, plugin := range AgentConfig.Plugins {
+	// for _, plugin := range config.Plugins {
 	// 	if plugin.Name == "" {
 	// 		return fmt.Errorf("Plugin name cannot be empty")
 	// 	}
@@ -137,5 +137,5 @@ func InitConfig(path string) error {
 	// }
 
 	// return nil
-	return nil
+	return config, nil
 }

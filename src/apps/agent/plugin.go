@@ -70,12 +70,12 @@ type PluginOutput struct {
 }
 
 // handles running plugins
-func monitorPlugins(ep *errplane.Errplane) {
+func (self *Agent) monitorPlugins() {
 	var previousConfig *AgentConfiguration
 	var plugins map[string]*PluginMetadata
 
 	for {
-		config, err := GetPluginsToRun()
+		config, err := self.configClient.GetPluginsToRun()
 		if err != nil {
 			log.Error("Error while getting configuration from backend. Error: %s", err)
 			if previousConfig == nil {
@@ -87,7 +87,7 @@ func monitorPlugins(ep *errplane.Errplane) {
 		log.Debug("Iterating through %d plugins", len(config.Plugins))
 
 		// get the list of plugins that should be turned from the config service
-		plugins = getAvailablePlugins()
+		plugins = self.getAvailablePlugins()
 
 		for name, instances := range config.Plugins {
 			plugin, ok := plugins[name]
@@ -101,16 +101,16 @@ func monitorPlugins(ep *errplane.Errplane) {
 			}
 
 			for _, instance := range instances {
-				go runPlugin(ep, instance, plugin)
+				go self.runPlugin(instance, plugin)
 			}
 		}
 
 	sleep:
-		time.Sleep(AgentConfig.Sleep)
+		time.Sleep(self.config.Sleep)
 	}
 }
 
-func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata) {
+func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
 	args := instance.ArgsList
 	for name, value := range instance.Args {
 		args = append(args, "--"+name, value)
@@ -131,7 +131,7 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 	}
 
 	ch := make(chan error)
-	go killPlugin(cmdPath, cmd, ch)
+	go self.killPlugin(cmdPath, cmd, ch)
 
 	output, err := ioutil.ReadAll(stdout)
 	if err != nil {
@@ -161,7 +161,7 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 		// all metrics have the host name as a dimension
 
 		dimensions := errplane.Dimensions{
-			"host":       AgentConfig.Hostname,
+			"host":       self.config.Hostname,
 			"status":     output.state.String(),
 			"status_msg": output.msg,
 		}
@@ -169,7 +169,7 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 			dimensions["instance"] = instance.Name
 		}
 
-		report(ep, fmt.Sprintf("plugins.%s.status", plugin.Name), 1.0, time.Now(), dimensions, nil)
+		self.Report(fmt.Sprintf("plugins.%s.status", plugin.Name), 1.0, time.Now(), "", dimensions)
 
 		// create a map from metric name to current value
 		currentValues := make(map[string]float64)
@@ -199,12 +199,12 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 				}
 			}
 
-			ep.SendHttp(&errplane.WriteOperation{Writes: output.points})
+			self.ep.SendHttp(&errplane.WriteOperation{Writes: output.points})
 		}
 
 		// process nagios output
 		if output.metrics != nil {
-			dimensions := errplane.Dimensions{"host": AgentConfig.Hostname}
+			dimensions := errplane.Dimensions{"host": self.config.Hostname}
 			if instance.Name != "" {
 				dimensions["instance"] = instance.Name
 			}
@@ -220,7 +220,7 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 					}
 
 				}
-				report(ep, fmt.Sprintf("plugins.%s.%s", plugin.Name, name), value, time.Now(), dimensions, nil)
+				self.Report(fmt.Sprintf("plugins.%s.%s", plugin.Name, name), value, time.Now(), "", dimensions)
 			}
 		}
 
@@ -245,7 +245,7 @@ func runPlugin(ep *errplane.Errplane, instance *Instance, plugin *PluginMetadata
 
 			diff := currentValue - value
 			diff = diff / timeDiff
-			report(ep, fmt.Sprintf("plugins.%s.%s.rate", plugin.Name, name), diff, time.Now(), dimensions, nil)
+			self.Report(fmt.Sprintf("plugins.%s.%s.rate", plugin.Name, name), diff, time.Now(), "", dimensions)
 		}
 	}
 }
@@ -404,18 +404,18 @@ func parseNagiosOutput(cmdState ProcessState, firstLine string) (*PluginOutput, 
 	return &PluginOutput{PluginStateOutput(exitStatus), status, nil, metricsMap, time.Now()}, nil
 }
 
-func killPlugin(cmdPath string, cmd *exec.Cmd, ch chan error) {
+func (self *Agent) killPlugin(cmdPath string, cmd *exec.Cmd, ch chan error) {
 	select {
 	case err := <-ch:
 		if exitErr, ok := err.(*exec.ExitError); ok && !exitErr.Exited() {
 			log.Error("plugin %s didn't die gracefully. Killing it.", cmdPath)
 			cmd.Process.Kill()
 		}
-	case <-time.After(AgentConfig.Sleep):
+	case <-time.After(self.config.Sleep):
 		err := cmd.Process.Kill()
 		if err != nil {
 			log.Error("Cannot kill plugin %s. Error: %s", cmdPath, err)
 		}
-		log.Error("Plugin %s killed because it took more than %s to execute", cmdPath, AgentConfig.Sleep)
+		log.Error("Plugin %s killed because it took more than %s to execute", cmdPath, self.config.Sleep)
 	}
 }
