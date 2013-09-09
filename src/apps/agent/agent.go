@@ -290,7 +290,7 @@ func (self *Agent) ioStats(ch chan error) {
 				millisecondsElapsed := timestamp.Sub(prevTimeStamp).Nanoseconds() / int64(time.Millisecond)
 				utilization := float64(diskUsage.TotalIOTime-prevDiskUsage.TotalIOTime) / float64(millisecondsElapsed) * 100
 
-				metric := fmt.Sprintf("%s.servers.io.%s", self.config.Hostname, diskUsage.Name)
+				metric := fmt.Sprintf("%s.stats.io.%s", self.config.Hostname, diskUsage.Name)
 				self.Report(metric, float64(utilization), timestamp, "", nil)
 			}
 		}
@@ -397,13 +397,13 @@ func (self *Agent) cpuStats(ch chan error) {
 			softirq := float64(cpu.SoftIrq-prevCpu.SoftIrq) / total * 100
 			stolen := float64(cpu.Stolen-prevCpu.Stolen) / total * 100
 
-			self.Report(self.getServerStatMetricName("server.stats.cpu.sys"), sys, timestamp, "", nil)
-			self.Report(self.getServerStatMetricName("server.stats.cpu.user"), user, timestamp, "", nil)
-			self.Report(self.getServerStatMetricName("server.stats.cpu.idle"), idle, timestamp, "", nil)
-			self.Report(self.getServerStatMetricName("server.stats.cpu.wait"), wait, timestamp, "", nil)
-			self.Report(self.getServerStatMetricName("server.stats.cpu.irq"), irq, timestamp, "", nil)
-			self.Report(self.getServerStatMetricName("server.stats.cpu.softirq"), softirq, timestamp, "", nil)
-			self.Report(self.getServerStatMetricName("server.stats.cpu.stolen"), stolen, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("cpu.sys"), sys, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("cpu.user"), user, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("cpu.idle"), idle, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("cpu.wait"), wait, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("cpu.irq"), irq, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("cpu.softirq"), softirq, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("cpu.stolen"), stolen, timestamp, "", nil)
 		}
 		skipFirst = false
 		prevCpu = cpu
@@ -437,7 +437,7 @@ func (self *Agent) networkStats(ch chan error) {
 				txDroppedPackets := float64(utilization.txDroppedPackets - prevNetwork[name].txDroppedPackets)
 				txErrors := float64(utilization.txErrors - prevNetwork[name].txErrors)
 
-				metricPrefix := self.getServerStatMetricName(fmt.Sprintf("stats.network.%s.", name))
+				metricPrefix := self.getServerStatMetricName(fmt.Sprintf("network.%s.", name))
 
 				self.Report(metricPrefix+"rxBytes", rxBytes, timestamp, "", nil)
 				self.Report(metricPrefix+"rxPackets", rxPackets, timestamp, "", nil)
