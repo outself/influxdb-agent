@@ -437,7 +437,7 @@ func (self *Agent) networkStats(ch chan error) {
 				txDroppedPackets := float64(utilization.txDroppedPackets - prevNetwork[name].txDroppedPackets)
 				txErrors := float64(utilization.txErrors - prevNetwork[name].txErrors)
 
-				metricPrefix := self.getServerStatMetricName(fmt.Sprintf("stats.network.%s", name))
+				metricPrefix := self.getServerStatMetricName(fmt.Sprintf("stats.network.%s.", name))
 
 				self.Report(metricPrefix+"rxBytes", rxBytes, timestamp, "", nil)
 				self.Report(metricPrefix+"rxPackets", rxPackets, timestamp, "", nil)
