@@ -27,6 +27,11 @@ type Config struct {
 	ConfigService     string `yaml:"config-service"`
 	TopNProcesses     int    `yaml:"top-n-processes"`
 
+	// websocket configuration
+	RawWebsocketPing string `yaml:"websocket-ping"`
+	WebsocketPing    time.Duration
+	ConfigWebsocket  string `yaml:"config-websocket"`
+
 	// aggregator configuration
 	Percentiles      []float64     `yaml:"percentiles,flow"`
 	RawFlushInterval string        `yaml:"flush-interval"`
@@ -70,6 +75,11 @@ func InitConfig(path string) error {
 	}
 
 	AgentConfig.TopNSleep, err = time.ParseDuration(AgentConfig.RawTopNSleep)
+	if err != nil {
+		return err
+	}
+
+	AgentConfig.WebsocketPing, err = time.ParseDuration(AgentConfig.RawWebsocketPing)
 	if err != nil {
 		return err
 	}
