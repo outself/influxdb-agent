@@ -147,6 +147,8 @@ func (self *Agent) initLog() error {
 }
 
 func (self *Agent) Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions) {
+	log.Debug("Reporting %s", metric)
+
 	self.detector.Report(metric, value, context, dimensions)
 
 	time := timestamp.Unix()
@@ -230,30 +232,30 @@ func (self *Agent) reportProcessMetric(monitoredProcess *utils.Process, stat *Me
 		suffix = ".top"
 	}
 
+	processName := ""
+	var dimensions errplane.Dimensions
+
+	// is this a monitored process or one of the top N processes ?
+	if monitoredProcess != nil {
+		processName = monitoredProcess.Nickname
+	} else {
+		processName = strconv.Itoa(stat.pid)
+		dimensions = errplane.Dimensions{
+			"name":    stat.name,
+			"cmdline": strings.Join(stat.args, " "),
+		}
+	}
+
 	switch metricName {
 	case "cpu":
-		metric = fmt.Sprintf("server.stats.procs.cpu%s", suffix)
+		metric = fmt.Sprintf("%s.processes.%s.cpu%s", self.config.Hostname, processName, suffix)
 		value = stat.cpuUsage
 	case "mem":
-		metric = fmt.Sprintf("server.stats.procs.mem%s", suffix)
+		metric = fmt.Sprintf("%s.processes.%s.mem%s", self.config.Hostname, processName, suffix)
 		value = stat.memUsage
 	default:
 		log.Error("unknown metric name %s", metricName)
 		return true
-	}
-	var dimensions errplane.Dimensions
-	if monitoredProcess != nil {
-		dimensions = errplane.Dimensions{
-			"nickname": monitoredProcess.Nickname,
-			"host":     self.config.Hostname,
-		}
-	} else {
-		dimensions = errplane.Dimensions{
-			"pid":     strconv.Itoa(stat.pid),
-			"name":    stat.name,
-			"cmdline": strings.Join(stat.args, " "),
-			"host":    self.config.Hostname,
-		}
 	}
 
 	self.Report(metric, value, now, "", dimensions)
@@ -288,9 +290,8 @@ func (self *Agent) ioStats(ch chan error) {
 				millisecondsElapsed := timestamp.Sub(prevTimeStamp).Nanoseconds() / int64(time.Millisecond)
 				utilization := float64(diskUsage.TotalIOTime-prevDiskUsage.TotalIOTime) / float64(millisecondsElapsed) * 100
 
-				dimensions := errplane.Dimensions{"host": self.config.Hostname, "device": diskUsage.Name}
-
-				self.Report("server.stats.io.utilization", float64(utilization), timestamp, "", dimensions)
+				metric := fmt.Sprintf("%s.servers.io.%s", self.config.Hostname, diskUsage.Name)
+				self.Report(metric, float64(utilization), timestamp, "", nil)
 			}
 		}
 
@@ -298,6 +299,10 @@ func (self *Agent) ioStats(ch chan error) {
 		prevTimeStamp = timestamp
 		time.Sleep(self.config.Sleep)
 	}
+}
+
+func (self *Agent) getServerStatMetricName(metricName string) string {
+	return fmt.Sprintf("%s.stats.%s", self.config.Hostname, metricName)
 }
 
 func (self *Agent) memStats(ch chan error) {
@@ -316,7 +321,6 @@ func (self *Agent) memStats(ch chan error) {
 			return
 		}
 
-		dimensions := errplane.Dimensions{"host": self.config.Hostname}
 		timestamp := time.Now()
 
 		used := float64(mem.Used)
@@ -329,15 +333,15 @@ func (self *Agent) memStats(ch chan error) {
 			swapUsed := float64(swap.Used)
 			swapUsedPercentage := swapUsed / float64(swap.Total) * 100
 
-			self.Report("server.stats.swap.used", swapUsed, timestamp, "", dimensions)
-			self.Report("server.stats.swap.used_percentage", swapUsedPercentage, timestamp, "", dimensions)
+			self.Report(self.getServerStatMetricName("swap.used"), swapUsed, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("swap.used_percentage"), swapUsedPercentage, timestamp, "", nil)
 		}
 
-		self.Report("server.stats.memory.free", float64(mem.Free), timestamp, "", dimensions)
-		self.Report("server.stats.memory.used", used, timestamp, "", dimensions)
-		self.Report("server.stats.memory.actual_used", actualUsed, timestamp, "", dimensions)
-		self.Report("server.stats.memory.used_percentage", usedPercentage, timestamp, "", dimensions)
-		self.Report("server.stats.swap.free", float64(swap.Free), timestamp, "", dimensions)
+		self.Report(self.getServerStatMetricName("memory.free"), float64(mem.Free), timestamp, "", nil)
+		self.Report(self.getServerStatMetricName("memory.used"), used, timestamp, "", nil)
+		self.Report(self.getServerStatMetricName("memory.actual_used"), actualUsed, timestamp, "", nil)
+		self.Report(self.getServerStatMetricName("memory.used_percentage"), usedPercentage, timestamp, "", nil)
+		self.Report(self.getServerStatMetricName("swap.free"), float64(swap.Free), timestamp, "", nil)
 
 		time.Sleep(self.config.Sleep)
 	}
@@ -357,13 +361,12 @@ func (self *Agent) diskSpaceStats(ch chan error) {
 			usage := sigar.FileSystemUsage{}
 			usage.Get(dir_name)
 
-			dimensions := errplane.Dimensions{"host": self.config.Hostname, "device": fs.DirName}
-
 			used := float64(usage.Total)
 			usedPercentage := usage.UsePercent()
 
-			self.Report("server.stats.disk.used", used, timestamp, "", dimensions)
-			self.Report("server.stats.disk.used_percentage", usedPercentage, timestamp, "", dimensions)
+			metricName := self.getServerStatMetricName(fmt.Sprintf("disk.%s.used", fs.DirName))
+			self.Report(metricName, used, timestamp, "", nil)
+			self.Report(metricName+"_percentage", usedPercentage, timestamp, "", nil)
 		}
 		time.Sleep(self.config.Sleep)
 	}
@@ -384,8 +387,6 @@ func (self *Agent) cpuStats(ch chan error) {
 		}
 
 		if !skipFirst {
-			dimensions := errplane.Dimensions{"host": self.config.Hostname}
-
 			total := float64(cpu.Total() - prevCpu.Total())
 
 			sys := float64(cpu.Sys-prevCpu.Sys) / total * 100
@@ -396,13 +397,13 @@ func (self *Agent) cpuStats(ch chan error) {
 			softirq := float64(cpu.SoftIrq-prevCpu.SoftIrq) / total * 100
 			stolen := float64(cpu.Stolen-prevCpu.Stolen) / total * 100
 
-			self.Report("server.stats.cpu.sys", sys, timestamp, "", dimensions)
-			self.Report("server.stats.cpu.user", user, timestamp, "", dimensions)
-			self.Report("server.stats.cpu.idle", idle, timestamp, "", dimensions)
-			self.Report("server.stats.cpu.wait", wait, timestamp, "", dimensions)
-			self.Report("server.stats.cpu.irq", irq, timestamp, "", dimensions)
-			self.Report("server.stats.cpu.softirq", softirq, timestamp, "", dimensions)
-			self.Report("server.stats.cpu.stolen", stolen, timestamp, "", dimensions)
+			self.Report(self.getServerStatMetricName("server.stats.cpu.sys"), sys, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("server.stats.cpu.user"), user, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("server.stats.cpu.idle"), idle, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("server.stats.cpu.wait"), wait, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("server.stats.cpu.irq"), irq, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("server.stats.cpu.softirq"), softirq, timestamp, "", nil)
+			self.Report(self.getServerStatMetricName("server.stats.cpu.stolen"), stolen, timestamp, "", nil)
 		}
 		skipFirst = false
 		prevCpu = cpu
@@ -426,9 +427,6 @@ func (self *Agent) networkStats(ch chan error) {
 
 		if !skipFirst {
 			for name, utilization := range network {
-
-				dimensions := errplane.Dimensions{"host": self.config.Hostname, "device": name}
-
 				rxBytes := float64(utilization.rxBytes - prevNetwork[name].rxBytes)
 				rxPackets := float64(utilization.rxPackets - prevNetwork[name].rxPackets)
 				rxDroppedPackets := float64(utilization.rxDroppedPackets - prevNetwork[name].rxDroppedPackets)
@@ -439,14 +437,16 @@ func (self *Agent) networkStats(ch chan error) {
 				txDroppedPackets := float64(utilization.txDroppedPackets - prevNetwork[name].txDroppedPackets)
 				txErrors := float64(utilization.txErrors - prevNetwork[name].txErrors)
 
-				self.Report("server.stats.network.rxBytes", rxBytes, timestamp, "", dimensions)
-				self.Report("server.stats.network.rxPackets", rxPackets, timestamp, "", dimensions)
-				self.Report("server.stats.network.rxDropped", rxDroppedPackets, timestamp, "", dimensions)
-				self.Report("server.stats.network.rxErrors", rxErrors, timestamp, "", dimensions)
-				self.Report("server.stats.network.txBytes", txBytes, timestamp, "", dimensions)
-				self.Report("server.stats.network.txPackets", txPackets, timestamp, "", dimensions)
-				self.Report("server.stats.network.txDropped", txDroppedPackets, timestamp, "", dimensions)
-				self.Report("server.stats.network.txErrors", txErrors, timestamp, "", dimensions)
+				metricPrefix := self.getServerStatMetricName(fmt.Sprintf("stats.network.%s", name))
+
+				self.Report(metricPrefix+"rxBytes", rxBytes, timestamp, "", nil)
+				self.Report(metricPrefix+"rxPackets", rxPackets, timestamp, "", nil)
+				self.Report(metricPrefix+"rxDropped", rxDroppedPackets, timestamp, "", nil)
+				self.Report(metricPrefix+"rxErrors", rxErrors, timestamp, "", nil)
+				self.Report(metricPrefix+"txBytes", txBytes, timestamp, "", nil)
+				self.Report(metricPrefix+"txPackets", txPackets, timestamp, "", nil)
+				self.Report(metricPrefix+"txDropped", txDroppedPackets, timestamp, "", nil)
+				self.Report(metricPrefix+"txErrors", txErrors, timestamp, "", nil)
 			}
 		}
 		skipFirst = false

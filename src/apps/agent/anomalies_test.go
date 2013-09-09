@@ -195,11 +195,11 @@ func (self *LogMonitoringSuite) TestMetricMonitoring(c *C) {
 }
 
 func (self *LogMonitoringSuite) TestPluginMonitoring(c *C) {
-	self.detector.Report("plugins.redis.status", 1.0, "", errplane.Dimensions{"status": "critical"})
+	self.detector.Report("localhost.plugins.redis.status", 1.0, "critical", nil)
 
 	time.Sleep(2 * time.Second)
 
-	self.detector.Report("plugins.redis.status", 1.0, "", errplane.Dimensions{"status": "critical"})
+	self.detector.Report("localhost.plugins.redis.status", 1.0, "critical", nil)
 
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
@@ -209,11 +209,11 @@ func (self *LogMonitoringSuite) TestPluginMonitoring(c *C) {
 }
 
 func (self *LogMonitoringSuite) TestResetPluginMonitoring(c *C) {
-	self.detector.Report("plugins.redis.status", 1.0, "", errplane.Dimensions{"status": "critical"})
+	self.detector.Report("plugins.redis.status", 1.0, "critical", nil)
 
 	time.Sleep(2 * time.Second)
 
-	self.detector.Report("plugins.redis.status", 1.0, "", errplane.Dimensions{"status": "warning"})
+	self.detector.Report("plugins.redis.status", 1.0, "warning", nil)
 
 	c.Assert(self.reporter.events, HasLen, 0)
 }

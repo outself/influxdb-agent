@@ -161,15 +161,14 @@ func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
 		// all metrics have the host name as a dimension
 
 		dimensions := errplane.Dimensions{
-			"host":       self.config.Hostname,
-			"status":     output.state.String(),
 			"status_msg": output.msg,
 		}
 		if instance.Name != "" {
 			dimensions["instance"] = instance.Name
 		}
 
-		self.Report(fmt.Sprintf("plugins.%s.status", plugin.Name), 1.0, time.Now(), "", dimensions)
+		metricSuffix := self.getServerStatMetricName(fmt.Sprintf("plugins.%s.", plugin.Name))
+		self.Report(metricSuffix+"status", 1.0, time.Now(), output.state.String(), dimensions)
 
 		// create a map from metric name to current value
 		currentValues := make(map[string]float64)
@@ -191,7 +190,7 @@ func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
 					}
 				}
 
-				write.Name = fmt.Sprintf("plugins.%s.%s", plugin.Name, write.Name)
+				write.Name = metricSuffix + write.Name
 				if instance.Name != "" {
 					for _, point := range write.Points {
 						point.Dimensions["instance"] = instance.Name
@@ -204,7 +203,6 @@ func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
 
 		// process nagios output
 		if output.metrics != nil {
-			dimensions := errplane.Dimensions{"host": self.config.Hostname}
 			if instance.Name != "" {
 				dimensions["instance"] = instance.Name
 			}
@@ -220,7 +218,7 @@ func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
 					}
 
 				}
-				self.Report(fmt.Sprintf("plugins.%s.%s", plugin.Name, name), value, time.Now(), "", dimensions)
+				self.Report(metricSuffix+name, value, time.Now(), "", dimensions)
 			}
 		}
 
@@ -245,7 +243,7 @@ func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
 
 			diff := currentValue - value
 			diff = diff / timeDiff
-			self.Report(fmt.Sprintf("plugins.%s.%s.rate", plugin.Name, name), diff, time.Now(), "", dimensions)
+			self.Report(metricSuffix+name, diff, time.Now(), "", dimensions)
 		}
 	}
 }

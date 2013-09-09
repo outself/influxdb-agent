@@ -3,7 +3,6 @@ package main
 import (
 	log "code.google.com/p/log4go"
 	"fmt"
-	"github.com/errplane/errplane-go"
 	"github.com/errplane/gosigar"
 	"os/exec"
 	"regexp"
@@ -219,9 +218,6 @@ func (self *Agent) reportProcessEvent(process *Process, regex, status string) {
 		return
 	}
 
-	self.Report("server.process.monitoring", 1.0, time.Now(), "", errplane.Dimensions{
-		"host":     self.config.Hostname,
-		"nickname": process.Nickname,
-		"status":   status,
-	})
+	metricName := self.getServerStatMetricName(fmt.Sprintf("processes.%s.status", process.Nickname))
+	self.Report(metricName, 1.0, time.Now(), status, nil)
 }

@@ -115,7 +115,7 @@ func (self *AnomaliesDetector) Report(metricName string, value float64, context 
 			// doesn't match the monitor regex
 			continue
 		}
-		status := dimensions["status"]
+		status := context
 		self.reportPluginEvent(monitor, pluginName, status)
 		// stop processing any further plugin monitor
 		break
