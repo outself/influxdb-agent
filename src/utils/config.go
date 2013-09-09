@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
@@ -51,17 +50,16 @@ func ParseConfig(path string) (*Config, error) {
 
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, WrapInErrplaneError(err)
 	}
 	err = goyaml.Unmarshal(content, config)
 	if err != nil {
-		return nil, err
+		return nil, WrapInErrplaneError(err)
 	}
 
 	config.Hostname, err = os.Hostname()
 	if err != nil {
-		fmt.Printf("Cannot determine hostname. Error: %s\n", err)
-		os.Exit(1)
+		return nil, WrapInErrplaneError(err)
 	}
 
 	// setPluginDefaults()
@@ -69,27 +67,27 @@ func ParseConfig(path string) (*Config, error) {
 
 	config.Sleep, err = time.ParseDuration(config.RawSleep)
 	if err != nil {
-		return nil, err
+		return nil, WrapInErrplaneError(err)
 	}
 
 	config.FlushInterval, err = time.ParseDuration(config.RawFlushInterval)
 	if err != nil {
-		return nil, err
+		return nil, WrapInErrplaneError(err)
 	}
 
 	config.TopNSleep, err = time.ParseDuration(config.RawTopNSleep)
 	if err != nil {
-		return nil, err
+		return nil, WrapInErrplaneError(err)
 	}
 
 	config.WebsocketPing, err = time.ParseDuration(config.RawWebsocketPing)
 	if err != nil {
-		return nil, err
+		return nil, WrapInErrplaneError(err)
 	}
 
 	config.MonitoredSleep, err = time.ParseDuration(config.RawMonitoredSleep)
 	if err != nil {
-		return nil, err
+		return nil, WrapInErrplaneError(err)
 	}
 	// for _, process := range config.MonitoredProcesses {
 	// 	process.CompiledRegex, err = regexp.Compile(process.Regex)

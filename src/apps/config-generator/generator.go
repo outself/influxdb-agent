@@ -64,6 +64,8 @@ config-service:  %s											      # the location of the configuration service
 
 datastore-dir: /data/errplane-agent/shared/db
 
+websocket-ping: 1s
+
 # processes:
 #   - name:   mysqld
 #     start:  service mysql start             # the command to run to start the service
