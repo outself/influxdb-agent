@@ -7,3 +7,6 @@
 [submodule "src/github.com/errplane/errplane-go-common"]
 	path = src/github.com/errplane/errplane-go-common
 	url = git@github.com:errplane/errplane-go-common.git
+[submodule "src/github.com/nu7hatch/gouuid"]
+	path = src/github.com/nu7hatch/gouuid
+	url = https://github.com/nu7hatch/gouuid.git
