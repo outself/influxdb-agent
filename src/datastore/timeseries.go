@@ -163,7 +163,7 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 	defer self.readLock.Unlock()
 
 	setGetParamsDefaults(params)
-	endTime := params.endTime
+	endTime := params.EndTime
 	for {
 		db, shouldClose, err := self.openDbOrUseTodays(endTime)
 		if db == nil || err != nil {
@@ -174,14 +174,14 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 			defer db.Close()
 		}
 
-		params.endTime = params.endTime + 1
+		params.EndTime = params.EndTime + 1
 		ro := levigo.NewReadOptions()
 		it := db.NewIterator(ro)
 		defer it.Close()
 		defer ro.Close()
 
-		beginningKey := fmt.Sprintf("%s~t~%s~", params.database, params.timeSeries)
-		key := fmt.Sprintf("%s~t~%s~%d_", params.database, params.timeSeries, params.endTime)
+		beginningKey := fmt.Sprintf("%s~t~%s~", params.Database, params.TimeSeries)
+		key := fmt.Sprintf("%s~t~%s~%d_", params.Database, params.TimeSeries, params.EndTime)
 
 		it.Seek([]byte(key))
 		if it.Valid() {
@@ -190,7 +190,7 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 			log.Info("GET_POINTS: first seek wasn't valid")
 		}
 
-		for it = it; it.Valid() && params.limit > 0; it.Prev() {
+		for it = it; it.Valid() && params.Limit > 0; it.Prev() {
 			pointKey := string(it.Key())
 			if !strings.HasPrefix(pointKey, beginningKey) {
 				break
@@ -200,17 +200,17 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 			if err != nil {
 				return utils.WrapInErrplaneError(err)
 			}
-			if *newPoint.Time < params.startTime {
+			if *newPoint.Time < params.StartTime {
 				break
 			}
 			if params.matchesFilters(newPoint) {
-				params.limit--
+				params.Limit--
 				if err := yield(newPoint); err != nil {
 					return utils.WrapInErrplaneError(err)
 				}
 			}
 		}
-		if params.limit == 0 || endTime < params.startTime {
+		if params.Limit == 0 || endTime < params.StartTime {
 			break
 		}
 		endTime -= 24 * int64(time.Hour) / int64(time.Second)

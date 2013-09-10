@@ -62,10 +62,10 @@ func (self *DatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
 	// make sure the points are inserted
 	points := make([]*Point, 0)
 	err = db.ReadSeries(&GetParams{
-		database:   "dbname",
-		timeSeries: "timeseries",
-		startTime:  timestamps[0],
-		endTime:    timestamps[len(timestamps)-1],
+		Database:   "dbname",
+		TimeSeries: "timeseries",
+		StartTime:  timestamps[0],
+		EndTime:    timestamps[len(timestamps)-1],
 	}, func(p *Point) error {
 		points = append(points, p)
 		return nil

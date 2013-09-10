@@ -89,9 +89,9 @@ func (self *SnapshotDatastore) TakeSnapshot(relatedMetricsRegex []string, start 
 			return nil
 		}
 		params := &GetParams{
-			database:   self.database,
-			timeSeries: metric,
-			startTime:  start.Unix(),
+			Database:   self.database,
+			TimeSeries: metric,
+			StartTime:  start.Unix(),
 		}
 		err := self.timeseriesDatastore.ReadSeries(params, read)
 		if err != nil {

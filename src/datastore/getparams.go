@@ -6,28 +6,28 @@ import (
 )
 
 type GetParams struct {
-	database          string
-	timeSeries        string
-	startTime         int64
-	endTime           int64
-	limit             int64
-	includeContext    bool
-	includeDimensions bool
-	includeIds        bool
-	filter            map[string]string
-	notFilter         map[string]string
+	Database          string
+	TimeSeries        string
+	StartTime         int64
+	EndTime           int64
+	Limit             int64
+	IncludeContext    bool
+	IncludeDimensions bool
+	IncludeIds        bool
+	Filter            map[string]string
+	NotFilter         map[string]string
 }
 
 func (self *GetParams) matchesFilters(point *Point) bool {
-	shouldFilter := len(self.filter) > 0 || len(self.notFilter) > 0
+	shouldFilter := len(self.Filter) > 0 || len(self.NotFilter) > 0
 	if shouldFilter {
-		for dimensionName, expectedValue := range self.filter {
+		for dimensionName, expectedValue := range self.Filter {
 			val, hasDimension := point.GetDimensionValue(&dimensionName)
 			if !hasDimension || *val != expectedValue {
 				return false
 			}
 		}
-		for dimensionName, expectedValue := range self.notFilter {
+		for dimensionName, expectedValue := range self.NotFilter {
 			val, _ := point.GetDimensionValue(&dimensionName)
 			if *val == expectedValue {
 				return false
@@ -38,11 +38,11 @@ func (self *GetParams) matchesFilters(point *Point) bool {
 }
 
 func setGetParamsDefaults(params *GetParams) {
-	if params.endTime == 0 {
-		params.endTime = time.Now().Unix()
+	if params.EndTime == 0 {
+		params.EndTime = time.Now().Unix()
 	}
 
-	if params.limit == 0 {
-		params.limit = 50000
+	if params.Limit == 0 {
+		params.Limit = 50000
 	}
 }
