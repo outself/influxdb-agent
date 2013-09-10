@@ -3,6 +3,7 @@ package main
 import (
 	"code.google.com/p/goprotobuf/proto"
 	log "code.google.com/p/log4go"
+	"datastore"
 	"github.com/errplane/errplane-go-common/agent"
 	"github.com/garyburd/go-websocket/websocket"
 	"io/ioutil"
@@ -14,19 +15,21 @@ import (
 )
 
 type WebsocketClient struct {
-	ws                *websocket.Conn
-	send              chan *agent.Response
-	pingPeriod        time.Duration
-	config            *utils.Config
-	anomaliesDetector *AnomaliesDetector
+	ws                  *websocket.Conn
+	send                chan *agent.Response
+	pingPeriod          time.Duration
+	config              *utils.Config
+	anomaliesDetector   *AnomaliesDetector
+	timeSeriesDatastore *datastore.TimeseriesDatastore
 }
 
-func NewWebsocketClient(config *utils.Config, anomaliesDetector *AnomaliesDetector) *WebsocketClient {
+func NewWebsocketClient(config *utils.Config, anomaliesDetector *AnomaliesDetector, timeSeriesDatastore *datastore.TimeseriesDatastore) *WebsocketClient {
 	cl := &WebsocketClient{
-		send:              make(chan *agent.Response),
-		config:            config,
-		pingPeriod:        (config.WebsocketPing * 9) / 10,
-		anomaliesDetector: anomaliesDetector,
+		send:                make(chan *agent.Response),
+		config:              config,
+		pingPeriod:          (config.WebsocketPing * 9) / 10,
+		anomaliesDetector:   anomaliesDetector,
+		timeSeriesDatastore: timeSeriesDatastore,
 	}
 	return cl
 }
@@ -99,17 +102,51 @@ func (self *WebsocketClient) handleRequest(request *agent.Request) {
 	case agent.Request_CONFIG_RELOAD:
 		self.anomaliesDetector.ForceMonitorConfigUpdate()
 	case agent.Request_METRICS:
+		self.send <- self.readMetrics(request)
 	case agent.Request_SNAPSHOT:
 	default:
 		log.Error("Don't know how to handle request: ", request)
+
+		// TODO: actually process the request
+		t := agent.Response_METRICS
+		r := &agent.Response{Type: &t}
+		r.TimeSeries = make([]*agent.TimeSeries, 1, 1)
+		seriesName := "foobar"
+		r.TimeSeries[0] = &agent.TimeSeries{Name: &seriesName}
+		self.send <- r
 	}
-	// TODO: actually process the request
+}
+
+func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response {
 	t := agent.Response_METRICS
 	r := &agent.Response{Type: &t}
-	r.TimeSeries = make([]*agent.TimeSeries, 1, 1)
-	seriesName := "foobar"
-	r.TimeSeries[0] = &agent.TimeSeries{Name: &seriesName}
-	self.send <- r
+	r.TimeSeries = make([]*agent.TimeSeries, len(request.MetricNames), len(request.MetricNames))
+	defaultLimit := int64(1)
+	params := &datastore.GetParams{StartTime: int64(1), EndTime: time.Now().Unix(), Database: self.config.Database(), IncludeContext: true}
+	if request.StartTime != nil {
+		// since they set a start time the default limit should be much higher
+		defaultLimit = int64(1000)
+		params.StartTime = *request.StartTime
+	}
+	if request.EndTime != nil {
+		params.EndTime = *request.EndTime
+	}
+	if request.Limit != nil {
+		defaultLimit = *request.Limit
+	}
+	for i, n := range request.MetricNames {
+		params.Limit = defaultLimit
+		params.TimeSeries = n
+		name := n
+		ts := &agent.TimeSeries{Name: &name, Points: make([]*agent.Point, 0)}
+		addPoint := func(point *agent.Point) error {
+			ts.Points = append(ts.Points, point)
+			return nil
+		}
+		self.timeSeriesDatastore.ReadSeries(params, addPoint)
+		r.TimeSeries[i] = ts
+	}
+	return r
 }
 
 func (self *WebsocketClient) connect() error {
