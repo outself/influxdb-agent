@@ -15,6 +15,7 @@ func main() {
 		httpHost   = flag.String("http-host", "w.apiv3.errplane.com", "The path to the generated config file")
 		configHost = flag.String("config-host", "c.apiv3.errplane.com", "The path to the generated config file")
 		path       = flag.String("path", "/etc/errplane-agent/config.yml", "The path to the generated config file")
+		ws         = flag.String("config-ws", "ws.apiv3.errplane.com", "The url of the configuration service websocket")
 	)
 
 	flag.Parse()
@@ -61,10 +62,10 @@ top-n-processes: 5                            # For processes stats the agent wi
 top-n-sleep:     1m                           # Sampling frequency of the top n processes
 monitored-sleep: 10s                          # Sampling frequency of the monitored processes
 config-service:  %s											      # the location of the configuration service
-
 datastore-dir: /data/errplane-agent/shared/db
 
-websocket-ping: 1s
+config-websocket: %s												  # the location of the configuration server websocket
+websocket-ping: 60s													  # the websocket ping interval
 
 # processes:
 #   - name:   mysqld
@@ -82,7 +83,7 @@ websocket-ping: 1s
 #         port: 6379    # call the plugin with --port 6379
 `
 
-	content := fmt.Sprintf(sample, *udpHost, *httpHost, *apiKey, *appKey, *env, *configHost)
+	content := fmt.Sprintf(sample, *udpHost, *httpHost, *apiKey, *appKey, *env, *configHost, *ws)
 	file, err := os.Create(*path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot open %s. Error: %s\n", *path, err)
