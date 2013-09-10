@@ -136,7 +136,7 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 	}
 	for i, n := range request.MetricNames {
 		params.Limit = defaultLimit
-		params.TimeSeries = n
+		params.TimeSeries = self.config.Hostname + "." + n
 		name := n
 		ts := &agent.TimeSeries{Name: &name, Points: make([]*agent.Point, 0)}
 		addPoint := func(point *agent.Point) error {
