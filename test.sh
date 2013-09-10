@@ -30,5 +30,10 @@ if [ "x$regex" != "x" ]; then
     gocheck_args="-gocheck.f $regex"
 fi
 
-go test -v apps/agent $gocheck_args
+go test -v apps/agent $gocheck_args &&
 go test -v datastore $gocheck_args
+
+if [ $? -ne 0 ]; then
+    echo "Tests failed"
+    exit 1
+fi
