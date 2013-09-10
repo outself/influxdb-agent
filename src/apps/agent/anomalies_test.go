@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"datastore"
 	"fmt"
 	"github.com/errplane/errplane-go"
+	"github.com/errplane/errplane-go-common/agent"
 	"github.com/errplane/errplane-go-common/monitoring"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
@@ -15,7 +17,7 @@ import (
 
 type LogMonitoringSuite struct {
 	reporter *ReporterMock
-	detector *AnomaliesDetector
+	agent    *Agent
 	tempFile string
 	dbDir    string
 }
@@ -47,12 +49,13 @@ func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 		Sleep:        1 * time.Second,
 		DatastoreDir: self.dbDir,
 	}
-	agent, err := NewAgent(config)
+	var err error
+	self.agent, err = NewAgent(config)
 	c.Assert(err, IsNil)
 	configClient := utils.NewConfigServiceClient(config)
-	self.detector = NewAnomaliesDetector(config, configClient, self.reporter)
+	self.agent.detector = NewAnomaliesDetector(config, configClient, self.reporter)
 	ioutil.WriteFile("/tmp/foo.txt", nil, 0644)
-	go agent.watchLogFile(self.detector)
+	go self.agent.watchLogFile()
 }
 
 func (self *LogMonitoringSuite) TearDownSuite(c *C) {
@@ -105,8 +108,32 @@ func (self *LogMonitoringSuite) SetUpTest(c *C) {
 			},
 		},
 	}
-	self.detector.monitoringConfig = config
+	self.agent.detector.monitoringConfig = config
 	self.reporter.events = nil
+}
+
+func (self *LogMonitoringSuite) TestLogStorage(c *C) {
+	time.Sleep(1 * time.Second)
+
+	file, err := os.OpenFile(self.tempFile, os.O_APPEND|os.O_RDWR, 0644)
+	c.Assert(err, IsNil)
+	content := "INFO: testing\n"
+	fmt.Fprint(file, content)
+	file.Close()
+
+	time.Sleep(1 * time.Second)
+
+	points := []*agent.Point{}
+	params := &datastore.GetParams{
+		TimeSeries: fmt.Sprintf(".logs.%s", self.tempFile),
+		StartTime:  time.Now().Add(-1 * time.Hour).Unix(),
+	}
+	self.agent.timeseriesDatastore.ReadSeries(params, func(p *agent.Point) error {
+		points = append(points, p)
+		return nil
+	})
+	c.Assert(points, HasLen, 1)
+	c.Assert(*points[0].Context, Equals, content)
 }
 
 func (self *LogMonitoringSuite) TestLogMonitoring(c *C) {
@@ -170,21 +197,21 @@ func (self *LogMonitoringSuite) TestLogContext(c *C) {
 func (self *LogMonitoringSuite) TestResetMetricMonitoring(c *C) {
 	// test resetting of the metric monitoring if the value of the metric
 	// went below the threshold, i.e. cpu went below the threshold
-	self.detector.Report("foo.bar", 95.0, "", nil)
+	self.agent.detector.Report("foo.bar", 95.0, "", nil)
 
 	time.Sleep(1 * time.Second)
 
-	self.detector.Report("foo.bar", 85.0, "", nil)
+	self.agent.detector.Report("foo.bar", 85.0, "", nil)
 
 	c.Assert(self.reporter.events, HasLen, 0)
 }
 
 func (self *LogMonitoringSuite) TestMetricMonitoring(c *C) {
-	self.detector.Report("foo.bar", 95.0, "", nil)
+	self.agent.detector.Report("foo.bar", 95.0, "", nil)
 
 	time.Sleep(2 * time.Second)
 
-	self.detector.Report("foo.bar", 95.0, "", nil)
+	self.agent.detector.Report("foo.bar", 95.0, "", nil)
 
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
@@ -195,11 +222,11 @@ func (self *LogMonitoringSuite) TestMetricMonitoring(c *C) {
 }
 
 func (self *LogMonitoringSuite) TestPluginMonitoring(c *C) {
-	self.detector.Report("localhost.plugins.redis.status", 1.0, "critical", nil)
+	self.agent.detector.Report("localhost.plugins.redis.status", 1.0, "critical", nil)
 
 	time.Sleep(2 * time.Second)
 
-	self.detector.Report("localhost.plugins.redis.status", 1.0, "critical", nil)
+	self.agent.detector.Report("localhost.plugins.redis.status", 1.0, "critical", nil)
 
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
@@ -209,11 +236,11 @@ func (self *LogMonitoringSuite) TestPluginMonitoring(c *C) {
 }
 
 func (self *LogMonitoringSuite) TestResetPluginMonitoring(c *C) {
-	self.detector.Report("plugins.redis.status", 1.0, "critical", nil)
+	self.agent.detector.Report("plugins.redis.status", 1.0, "critical", nil)
 
 	time.Sleep(2 * time.Second)
 
-	self.detector.Report("plugins.redis.status", 1.0, "warning", nil)
+	self.agent.detector.Report("plugins.redis.status", 1.0, "warning", nil)
 
 	c.Assert(self.reporter.events, HasLen, 0)
 }

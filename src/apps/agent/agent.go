@@ -116,7 +116,7 @@ func (self *Agent) start() error {
 	go self.startUdpListener()
 	go self.startLocalServer()
 	self.detector = NewAnomaliesDetector(self.config, self.configClient, self)
-	go self.watchLogFile(self.detector)
+	go self.watchLogFile()
 	log.Info("Agent started successfully")
 	err = <-ch
 	time.Sleep(1 * time.Second) // give the logger a chance to close and write to the file

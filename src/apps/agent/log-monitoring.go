@@ -2,6 +2,7 @@ package main
 
 import (
 	log "code.google.com/p/log4go"
+	"fmt"
 	"github.com/howeyc/fsnotify"
 	"io/ioutil"
 	"math"
@@ -31,7 +32,12 @@ func getSize(filename string) (int64, error) {
 	return stat.Size(), nil
 }
 
-func (self *Agent) watchLogFile(detector Detector) {
+func (self *Agent) saveLogContent(logfile, lines string) {
+	metric := fmt.Sprintf("%s.logs.%s", self.config.Hostname, logfile)
+	self.Report(metric, 1.0, time.Now(), lines, nil)
+}
+
+func (self *Agent) watchLogFile() {
 	logFiles = make(map[string]*LogFile)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -85,12 +91,13 @@ func (self *Agent) watchLogFile(detector Detector) {
 				logFile.size = stat.Size()
 				lines := string(raw)
 				oldLines := logFile.lastHundredLines
+				self.saveLogContent(path, lines)
 				if len(oldLines) > 0 {
 					lines = oldLines[len(oldLines)-1] + lines
 					oldLines = oldLines[:len(oldLines)-1]
 				}
 				newLines := strings.Split(lines, "\n")
-				detector.ReportLogEvent(path, oldLines, newLines)
+				self.detector.ReportLogEvent(path, oldLines, newLines)
 				oldLines = append(oldLines, newLines...)
 				firstLine := int(math.Max(float64(len(oldLines)-100), 0.0))
 				logFile.lastHundredLines = oldLines[firstLine:]
@@ -103,7 +110,7 @@ func (self *Agent) watchLogFile(detector Detector) {
 
 	// add new watchers if the configuration was changed
 	for {
-		paths := detector.filesToMonitor()
+		paths := self.detector.filesToMonitor()
 		newPaths := make(map[string]bool)
 		for _, path := range paths {
 			newPaths[path] = true
