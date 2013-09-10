@@ -14,19 +14,27 @@ import (
 )
 
 type WebsocketClient struct {
-	ws         *websocket.Conn
-	send       chan *agent.Response
-	pingPeriod time.Duration
-	config     *utils.Config
+	ws                *websocket.Conn
+	send              chan *agent.Response
+	pingPeriod        time.Duration
+	config            *utils.Config
+	anomaliesDetector *AnomaliesDetector
 }
 
-func NewWebsocketClient(config *utils.Config) *WebsocketClient {
+func NewWebsocketClient(config *utils.Config, anomaliesDetector *AnomaliesDetector) *WebsocketClient {
 	cl := &WebsocketClient{
-		send:       make(chan *agent.Response),
-		config:     config,
-		pingPeriod: (config.WebsocketPing * 9) / 10,
+		send:              make(chan *agent.Response),
+		config:            config,
+		pingPeriod:        (config.WebsocketPing * 9) / 10,
+		anomaliesDetector: anomaliesDetector,
 	}
 	return cl
+}
+
+func (self *WebsocketClient) Start() {
+	self.connect()
+	go self.writePump()
+	go self.readPump()
 }
 
 func (self *WebsocketClient) writePump() {
@@ -77,20 +85,31 @@ func (self *WebsocketClient) readPump() {
 				} else {
 					request := &agent.Request{}
 					proto.Unmarshal(data, request)
-
-					// TODO: actually process the request
-					t := agent.Response_METRICS
-					r := &agent.Response{Type: &t}
-					r.TimeSeries = make([]*agent.TimeSeries, 1, 1)
-					seriesName := "foobar"
-					r.TimeSeries[0] = &agent.TimeSeries{Name: &seriesName}
-					self.send <- r
+					self.handleRequest(request)
 				}
 			} else if op == websocket.OpPong {
 				self.ws.SetReadDeadline(time.Now().Add(self.pingPeriod))
 			}
 		}
 	}
+}
+
+func (self *WebsocketClient) handleRequest(request *agent.Request) {
+	switch *request.Type {
+	case agent.Request_CONFIG_RELOAD:
+		self.anomaliesDetector.ForceMonitorConfigUpdate()
+	case agent.Request_METRICS:
+	case agent.Request_SNAPSHOT:
+	default:
+		log.Error("Don't know how to handle request: ", request)
+	}
+	// TODO: actually process the request
+	t := agent.Response_METRICS
+	r := &agent.Response{Type: &t}
+	r.TimeSeries = make([]*agent.TimeSeries, 1, 1)
+	seriesName := "foobar"
+	r.TimeSeries[0] = &agent.TimeSeries{Name: &seriesName}
+	self.send <- r
 }
 
 func (self *WebsocketClient) connect() error {

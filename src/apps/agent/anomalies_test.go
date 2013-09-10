@@ -54,6 +54,7 @@ func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 	configClient := utils.NewConfigServiceClient(config)
 	self.agent.detector = NewAnomaliesDetector(config, configClient, self.reporter)
+	self.agent.detector.Start()
 	ioutil.WriteFile("/tmp/foo.txt", nil, 0644)
 	go self.agent.watchLogFile()
 }

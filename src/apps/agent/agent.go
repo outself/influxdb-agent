@@ -64,6 +64,7 @@ type Agent struct {
 	snapshotDatastore   *datastore.SnapshotDatastore
 	ep                  *errplane.Errplane
 	detector            *AnomaliesDetector
+	websocketClient     *WebsocketClient
 }
 
 func NewAgent(config *utils.Config) (*Agent, error) {
@@ -116,10 +117,17 @@ func (self *Agent) start() error {
 	go self.startUdpListener()
 	go self.startLocalServer()
 	self.detector = NewAnomaliesDetector(self.config, self.configClient, self)
+	self.detector.Start()
+	self.websocketClient = NewWebsocketClient(self.config, self.detector)
+	self.websocketClient.Start()
 	go self.watchLogFile()
 	log.Info("Agent started successfully")
-	err = <-ch
-	time.Sleep(1 * time.Second) // give the logger a chance to close and write to the file
+
+	// TODO: handle a shutdown
+	for {
+		err = <-ch
+		log.Error(err)
+	}
 	return utils.WrapInErrplaneError(err)
 }
 

@@ -46,19 +46,28 @@ type Detector interface {
 }
 
 type AnomaliesDetector struct {
-	monitoringConfig *monitoring.MonitorConfig
-	agentConfig      *utils.Config
-	configClient     *utils.ConfigServiceClient
-	reporter         Reporter
+	monitoringConfig         *monitoring.MonitorConfig
+	agentConfig              *utils.Config
+	configClient             *utils.ConfigServiceClient
+	reporter                 Reporter
+	forceMonitorConfigUpdate chan int
 }
 
 func NewAnomaliesDetector(agentConfig *utils.Config, configClient *utils.ConfigServiceClient, reporter Reporter) *AnomaliesDetector {
-	detector := &AnomaliesDetector{nil, agentConfig, configClient, reporter}
-	go detector.updateMonitorConfig()
+	detector := &AnomaliesDetector{nil, agentConfig, configClient, reporter, make(chan int, 1)}
 	return detector
 }
 
+func (self *AnomaliesDetector) Start() {
+	go self.updateMonitorConfig()
+}
+
+func (self *AnomaliesDetector) ForceMonitorConfigUpdate() {
+	self.forceMonitorConfigUpdate <- 1
+}
+
 func (self *AnomaliesDetector) updateMonitorConfig() {
+	t := time.NewTicker(self.agentConfig.Sleep)
 	for {
 		var err error
 		config, err := self.configClient.GetMonitoringConfig()
@@ -67,7 +76,13 @@ func (self *AnomaliesDetector) updateMonitorConfig() {
 		} else {
 			self.monitoringConfig = config
 		}
-		time.Sleep(self.agentConfig.Sleep)
+		// now sleep until either a force update is sent or we just poll to check again
+		select {
+		case <-t.C:
+			// do nothing
+		case <-self.forceMonitorConfigUpdate:
+			log.Info("Forcing reload of configuration...")
+		}
 	}
 }
 
