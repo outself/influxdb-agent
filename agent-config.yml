@@ -26,11 +26,12 @@ log-level: info                               # debug, info, warn, error
 top-n-processes: 5                            # For processes stats the agent will report the top n processes (by memory and cpu usage)
 top-n-sleep:     1m                           # Sampling frequency of the top n processes
 monitored-sleep: 10s                          # Sampling frequency of the monitored processes
-config-service:  c.apiv3.errplane.com											      # the location of the configuration service
+config-service:  localhost:8080                           # the location of the configuration service
+config-websocket: localhost:8095
 
 datastore-dir: /tmp/db
 
-websocket-ping: 1s
+websocket-ping: 60s
 
 # processes:
 #   - name:   mysqld
