@@ -5,6 +5,7 @@ import (
 	log "code.google.com/p/log4go"
 	"encoding/json"
 	"fmt"
+	"github.com/errplane/errplane-go-common/agent"
 	"github.com/errplane/errplane-go-common/monitoring"
 	"io/ioutil"
 	"net/http"
@@ -17,19 +18,6 @@ const (
 	PLUGINS_DIR        = "/data/errplane-agent/shared/plugins"
 	CUSTOM_PLUGINS_DIR = "/data/errplane-agent/shared/custom-plugins"
 )
-
-type PluginInformation struct {
-	BasicStats []struct {
-		Name   string `json:"name"`
-		Metric string `json:"metric"`
-		Units  string `json:"units"`
-	} `yaml:"basic-stats" json:"stats,omitempty"`
-	Arguments []struct {
-		Name         string `json:"name"`
-		Description  string `json:"description"`
-		DefaultValue string `yaml:"default_value" json:"default"`
-	} `yaml:"arguments" json:"arguments,omitempty"`
-}
 
 type AgentConfiguration struct {
 	Plugins   map[string][]*Instance `json:"plugins"`
@@ -67,8 +55,8 @@ func (self *ConfigServiceClient) configServerUrl(path string, args ...interface{
 	return fmt.Sprintf("http://%s%s%s", self.config.ConfigService, separator, path)
 }
 
-func (self *ConfigServiceClient) SendCustomPlugins(plugins map[string]*PluginInformation) error {
-	data, err := json.Marshal(plugins)
+func (self *ConfigServiceClient) SendPluginInformation(info *agent.AgentPluginInformation) error {
+	data, err := json.Marshal(info)
 	if err != nil {
 		log.Error("Cannot marshal data to json")
 		return err
@@ -76,7 +64,7 @@ func (self *ConfigServiceClient) SendCustomPlugins(plugins map[string]*PluginInf
 	database := self.config.Database()
 	hostname := self.config.Hostname
 	apiKey := self.config.ApiKey
-	url := self.configServerUrl("/databases/%s/agent/%s/custom-plugins?api_key=%s", database, hostname, apiKey)
+	url := self.configServerUrl("/databases/%s/agents/%s?api_key=%s", database, hostname, apiKey)
 	log.Debug("posting to '%s' -- %s", url, data)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
 	if err != nil {
