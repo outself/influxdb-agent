@@ -117,10 +117,7 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 			parts := strings.Split(indexKey, "~")
 			if len(parts) > 2 {
 				// get the timestamp
-				_value, err := db.Get(ro, it.Key())
-				if err != nil {
-					return utils.WrapInErrplaneError(err)
-				}
+				_value := it.Value()
 				var value int64
 				if err := binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value); err != nil {
 					return utils.WrapInErrplaneError(err)
