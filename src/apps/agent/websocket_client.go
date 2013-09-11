@@ -165,7 +165,6 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 				}
 				if matches {
 					if strings.HasPrefix(metricName, rawStatPrefix) {
-						log.Info("metric: %s - %s - %s", rawStatPrefix, metricName, strings.TrimPrefix(metricName, rawStatPrefix))
 						metrics[strings.TrimPrefix(metricName, rawStatPrefix)] = true
 						break
 					}
