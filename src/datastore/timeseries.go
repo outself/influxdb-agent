@@ -68,34 +68,15 @@ func (self *TimeseriesDatastore) updateIndex(database, timeseries string, timest
 		timeseries,
 	)
 
-	ro := levigo.NewReadOptions()
-	defer ro.Close()
-
-	_value, err := self.db.Get(ro, []byte(key))
+	buffer := bytes.NewBuffer(nil)
+	err := binary.Write(buffer, binary.LittleEndian, timestamp.Unix())
 	if err != nil {
 		return utils.WrapInErrplaneError(err)
 	}
-
-	var value int64
-	if len(_value) > 0 {
-		err = binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value)
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
-	}
-
-	lastUpdate := time.Unix(value, 0)
-	if timestamp.Sub(lastUpdate) > 5*time.Minute {
-		buffer := bytes.NewBuffer(nil)
-		err = binary.Write(buffer, binary.LittleEndian, timestamp.Unix())
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
-		_value = buffer.Bytes()
-		err = self.db.Put(self.writeOptions, []byte(key), _value)
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
+	_value := buffer.Bytes()
+	err = self.db.Put(self.writeOptions, []byte(key), _value)
+	if err != nil {
+		return utils.WrapInErrplaneError(err)
 	}
 
 	return nil
