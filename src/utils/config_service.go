@@ -64,11 +64,11 @@ func (self *ConfigServiceClient) SendPluginInformation(info *agent.AgentPluginIn
 	database := self.config.Database()
 	hostname := self.config.Hostname
 	apiKey := self.config.ApiKey
-	url := self.configServerUrl("/databases/%s/agents/%s?api_key=%s", database, hostname, apiKey)
+	url := self.configServerUrl("/v2/databases/%s/agents/%s?api_key=%s", database, hostname, apiKey)
 	log.Debug("posting to '%s' -- %s", url, data)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
 	if err != nil {
-		log.Error("Cannot post agent information to '%s'. Error: %s", url, err)
+		log.Error("Cannot post running plugins info to '%s'. Error: %s", url, err)
 		return err
 	}
 	resp.Body.Close()
