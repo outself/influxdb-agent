@@ -22,15 +22,17 @@ type WebsocketClient struct {
 	config              *utils.Config
 	anomaliesDetector   *AnomaliesDetector
 	timeSeriesDatastore *datastore.TimeseriesDatastore
+	snapshotDatastore   *datastore.SnapshotDatastore
 }
 
-func NewWebsocketClient(config *utils.Config, anomaliesDetector *AnomaliesDetector, timeSeriesDatastore *datastore.TimeseriesDatastore) *WebsocketClient {
+func NewWebsocketClient(config *utils.Config, anomaliesDetector *AnomaliesDetector, timeSeriesDatastore *datastore.TimeseriesDatastore, snapshotDatastore *datastore.SnapshotDatastore) *WebsocketClient {
 	cl := &WebsocketClient{
 		send:                make(chan *agent.Response),
 		config:              config,
 		pingPeriod:          (config.WebsocketPing * 9) / 10,
 		anomaliesDetector:   anomaliesDetector,
 		timeSeriesDatastore: timeSeriesDatastore,
+		snapshotDatastore:   snapshotDatastore,
 	}
 	return cl
 }
@@ -105,6 +107,7 @@ func (self *WebsocketClient) handleRequest(request *agent.Request) {
 	case agent.Request_METRICS:
 		self.send <- self.readMetrics(request)
 	case agent.Request_SNAPSHOT:
+		self.send <- self.getSnapshot(request)
 	default:
 		log.Error("Don't know how to handle request: ", request)
 
@@ -116,6 +119,14 @@ func (self *WebsocketClient) handleRequest(request *agent.Request) {
 		r.TimeSeries[0] = &agent.TimeSeries{Name: &seriesName}
 		self.send <- r
 	}
+}
+
+func (self *WebsocketClient) getSnapshot(request *agent.Request) *agent.Response {
+	snapshot, _ := self.snapshotDatastore.GetSnapshot(request.GetSnapshotId())
+	t := agent.Response_SNAPSHOT
+	r := &agent.Response{Type: &t}
+	r.Snapshot = snapshot
+	return r
 }
 
 func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response {
