@@ -160,7 +160,6 @@ func (self *Agent) Report(metric string, value float64, timestamp time.Time, con
 	self.detector.Report(metric, value, context, dimensions)
 
 	time := timestamp.Unix()
-	var sequenceNumber uint32 = 1
 
 	protobufDimensions := make([]*agent.Dimension, 0, len(dimensions))
 	for name, value := range dimensions {
@@ -174,11 +173,10 @@ func (self *Agent) Report(metric string, value float64, timestamp time.Time, con
 
 	self.timeseriesDatastore.WritePoints(self.config.Database(), metric, []*agent.Point{
 		&agent.Point{
-			Value:          &value,
-			Time:           &time,
-			SequenceNumber: &sequenceNumber,
-			Context:        &context,
-			Dimensions:     protobufDimensions,
+			Value:      &value,
+			Time:       &time,
+			Context:    &context,
+			Dimensions: protobufDimensions,
 		},
 	})
 	if metric != "errplane.anomalies" {

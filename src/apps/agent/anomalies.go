@@ -359,8 +359,7 @@ func (self *AnomaliesDetector) isSilenced(monitor *monitoring.Monitor, condition
 
 	// now that we know we haven't, we'll be sending out an alert, so mark this so we can avoid flooding with alerts
 	points := make([]*agent.Point, 1, 1)
-	sequenceNumber := uint32(1)
-	points[0] = &agent.Point{Time: &endTime, SequenceNumber: &sequenceNumber}
+	points[0] = &agent.Point{Time: &endTime}
 	self.timeSeriesDatastore.WritePoints(database, seriesName, points)
 	return false
 }

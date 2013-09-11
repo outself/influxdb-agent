@@ -208,6 +208,10 @@ func (self *TimeseriesDatastore) WritePoints(database string, timeseries string,
 		if err := self.openDb(*point.Time); err != nil {
 			return utils.WrapInErrplaneError(err)
 		}
+		if point.SequenceNumber == nil {
+			n := self.nextSequenceNumber()
+			point.SequenceNumber = &n
+		}
 
 		key := fmt.Sprintf("%s~t~%s~%d_%d",
 			database,

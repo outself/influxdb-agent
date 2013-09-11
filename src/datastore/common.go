@@ -6,16 +6,22 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"utils"
 )
 
 type CommonDatastore struct {
-	day          string
-	db           *levigo.DB
-	dir          string
-	writeOptions *levigo.WriteOptions
-	readOptions  *levigo.ReadOptions
-	readLock     sync.Mutex
+	day            string
+	db             *levigo.DB
+	dir            string
+	writeOptions   *levigo.WriteOptions
+	readOptions    *levigo.ReadOptions
+	readLock       sync.Mutex
+	sequenceNumber uint32
+}
+
+func (self *CommonDatastore) nextSequenceNumber() uint32 {
+	return atomic.AddUint32(&self.sequenceNumber, 1)
 }
 
 func (self *CommonDatastore) openDb(epoch int64) error {
