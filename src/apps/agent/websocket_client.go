@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 	"utils"
 )
@@ -149,9 +150,10 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 
 	metrics := map[string]bool{}
 	for _, n := range request.MetricNames {
-		metrics[self.config.Hostname+"."+n] = true
+		metrics[n] = true
 	}
 
+	rawStatPrefix := self.config.Hostname + "."
 	// look up the regex matches
 	if len(request.MetricRegexes) > 0 {
 		addNamesToLookup := func(metricName string) {
@@ -162,8 +164,11 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 					continue
 				}
 				if matches {
-					metrics[metricName] = true
-					break
+					if strings.HasPrefix(metricName, rawStatPrefix) {
+						log.Info("metric: %s - %s - %s", rawStatPrefix, metricName, strings.TrimPrefix(metricName, rawStatPrefix))
+						metrics[strings.TrimPrefix(metricName, rawStatPrefix)] = true
+						break
+					}
 				}
 			}
 		}
@@ -177,7 +182,7 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 	// now look up the metrics
 	for n, _ := range metrics {
 		params.Limit = defaultLimit
-		params.TimeSeries = n
+		params.TimeSeries = rawStatPrefix + n
 		name := n
 		ts := &agent.TimeSeries{Name: &name, Points: make([]*agent.Point, 0)}
 		addPoint := func(point *agent.Point) error {
