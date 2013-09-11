@@ -215,48 +215,6 @@ func (self *TimeseriesDatastore) WritePoints(database string, timeseries string,
 			*point.Time,
 			*point.SequenceNumber,
 		)
-		id := fmt.Sprintf("%d_%d", *point.Time, *point.SequenceNumber)
-		oldPoint, err := self.readPoint(database, timeseries, id)
-		if err != nil {
-			return utils.WrapInErrplaneError(err)
-		}
-
-		newDimensions := make([]*Dimension, 0)
-		if oldPoint != nil {
-
-			// update value
-			if *point.Value == float64(0) {
-				point.Value = oldPoint.Value
-			}
-
-			// update context
-			if point.Context == nil {
-				point.Context = oldPoint.Context
-			}
-			for _, dim := range oldPoint.Dimensions {
-				newVal, hasDimension := point.GetDimensionValue(dim.Name)
-				if hasDimension {
-					if *newVal != "" {
-						dim.Value = newVal
-						newDimensions = append(newDimensions, dim)
-					}
-				} else {
-					newDimensions = append(newDimensions, dim)
-				}
-			}
-		}
-
-		if point.Context != nil && *point.Context == "" {
-			point.Context = nil
-		}
-
-		// update dimensions
-		for _, dim := range point.Dimensions {
-			if _, hasDimension := point.GetDimensionValue(dim.Name); !hasDimension {
-				newDimensions = append(newDimensions, dim)
-			}
-		}
-		point.Dimensions = newDimensions
 
 		data, err := proto.Marshal(point)
 		if err != nil {
