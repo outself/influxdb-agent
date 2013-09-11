@@ -54,7 +54,7 @@ func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 	configClient := utils.NewConfigServiceClient(config)
 	dbDir, _ := ioutil.TempDir(os.TempDir(), "db")
-	db, _ := NewTimeseriesDatastore(dbDir)
+	db, _ := datastore.NewTimeseriesDatastore(dbDir)
 	self.agent.detector = NewAnomaliesDetector(config, configClient, self.reporter, db)
 	self.agent.detector.Start()
 	ioutil.WriteFile("/tmp/foo.txt", nil, 0644)
