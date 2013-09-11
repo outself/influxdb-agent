@@ -2,10 +2,15 @@ package main
 
 import (
 	log "code.google.com/p/log4go"
+	"crypto/md5"
+	"datastore"
+	"encoding/json"
 	"fmt"
 	"github.com/errplane/errplane-go"
+	"github.com/errplane/errplane-go-common/agent"
 	"github.com/errplane/errplane-go-common/monitoring"
 	"github.com/pmylund/go-cache"
+	"io"
 	"math"
 	"regexp"
 	"strconv"
@@ -51,10 +56,11 @@ type AnomaliesDetector struct {
 	configClient             *utils.ConfigServiceClient
 	reporter                 Reporter
 	forceMonitorConfigUpdate chan int
+	timeSeriesDatastore      *datastore.TimeseriesDatastore
 }
 
-func NewAnomaliesDetector(agentConfig *utils.Config, configClient *utils.ConfigServiceClient, reporter Reporter) *AnomaliesDetector {
-	detector := &AnomaliesDetector{nil, agentConfig, configClient, reporter, make(chan int, 1)}
+func NewAnomaliesDetector(agentConfig *utils.Config, configClient *utils.ConfigServiceClient, reporter Reporter, timeSeriesDatastore *datastore.TimeseriesDatastore) *AnomaliesDetector {
+	detector := &AnomaliesDetector{nil, agentConfig, configClient, reporter, make(chan int, 1), timeSeriesDatastore}
 	return detector
 }
 
@@ -163,11 +169,13 @@ func (self *AnomaliesDetector) reportPluginEvent(monitor *monitoring.Monitor, na
 		metricEvents.events = append(metricEvents.events, &Event{time.Now()})
 
 		if len(metricEvents.events) > 0 && time.Now().Sub(metricEvents.events[0].timestamp) > condition.OnlyAfter {
-			self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
-				"PluginName":   name,
-				"AlertOnMatch": condition.AlertOnMatch,
-				"OnlyAfter":    condition.OnlyAfter.String(),
-			})
+			if !self.isSilenced(monitor, condition) {
+				self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+					"PluginName":   name,
+					"AlertOnMatch": condition.AlertOnMatch,
+					"OnlyAfter":    condition.OnlyAfter.String(),
+				})
+			}
 		}
 
 		// remove all events that are older than "OnlyAfter"
@@ -204,12 +212,14 @@ func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, va
 		metricEvents.events = append(metricEvents.events, &Event{time.Now()})
 
 		if len(metricEvents.events) > 0 && time.Now().Sub(metricEvents.events[0].timestamp) > condition.OnlyAfter {
-			self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
-				"StatName":       monitor.StatName,
-				"AlertWhen":      condition.AlertWhen.String(),
-				"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
-				"OnlyAfter":      condition.OnlyAfter.String(),
-			})
+			if !self.isSilenced(monitor, condition) {
+				self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+					"StatName":       monitor.StatName,
+					"AlertWhen":      condition.AlertWhen.String(),
+					"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
+					"OnlyAfter":      condition.OnlyAfter.String(),
+				})
+			}
 		}
 
 		// remove all events that are older than "OnlyAfter"
@@ -306,14 +316,51 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 					context = strings.Join(event.before, "\n") + "\n" + event.lines + "\n" + strings.Join(event.after, "\n")
 				}
 
-				self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), context, errplane.Dimensions{
-					"LogFile":        monitor.LogName,
-					"AlertWhen":      condition.AlertWhen.String(),
-					"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
-					"AlertOnMatch":   condition.AlertOnMatch,
-					"OnlyAfter":      condition.OnlyAfter.String(),
-				})
+				if !self.isSilenced(monitor, condition) {
+					self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), context, errplane.Dimensions{
+						"LogFile":        monitor.LogName,
+						"AlertWhen":      condition.AlertWhen.String(),
+						"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
+						"AlertOnMatch":   condition.AlertOnMatch,
+						"OnlyAfter":      condition.OnlyAfter.String(),
+					})
+				}
 			}
 		}
 	}
+}
+
+func (self *AnomaliesDetector) isSilenced(monitor *monitoring.Monitor, condition *monitoring.Condition) bool {
+	// this is my ghetto way to hash these things into a key so I can look up when they were last alerted
+	jsm, _ := json.Marshal(monitor)
+	jsc, _ := json.Marshal(condition)
+	key := string(jsm) + string(jsc)
+	h := md5.New()
+	io.WriteString(h, key)
+	seriesName := fmt.Sprintf("%s", h.Sum(nil))
+
+	// now check to make sure we haven't sent out too many alerts for each silence setting
+	now := time.Now()
+	endTime := now.Unix()
+	database := self.agentConfig.Database()
+	for _, setting := range self.monitoringConfig.Silence {
+		startTime := now.Add(-setting.Duration).Unix()
+		params := &datastore.GetParams{StartTime: startTime, EndTime: endTime, Limit: int64(setting.Count + 1), TimeSeries: seriesName, Database: database}
+		count := 0
+		cb := func(point *agent.Point) error {
+			count += 1
+			return nil
+		}
+		self.timeSeriesDatastore.ReadSeries(params, cb)
+		if count >= setting.Count {
+			return true
+		}
+	}
+
+	// now that we know we haven't, we'll be sending out an alert, so mark this so we can avoid flooding with alerts
+	points := make([]*agent.Point, 1, 1)
+	sequenceNumber := uint32(1)
+	points[0] = &agent.Point{Time: &endTime, SequenceNumber: &sequenceNumber}
+	self.timeSeriesDatastore.WritePoints(database, seriesName, points)
+	return false
 }

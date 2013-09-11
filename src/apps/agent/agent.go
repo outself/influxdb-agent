@@ -116,7 +116,7 @@ func (self *Agent) start() error {
 	go self.checkNewPlugins()
 	go self.startUdpListener()
 	go self.startLocalServer()
-	self.detector = NewAnomaliesDetector(self.config, self.configClient, self)
+	self.detector = NewAnomaliesDetector(self.config, self.configClient, self, self.timeseriesDatastore)
 	self.detector.Start()
 	self.websocketClient = NewWebsocketClient(self.config, self.detector, self.timeseriesDatastore)
 	self.websocketClient.Start()
