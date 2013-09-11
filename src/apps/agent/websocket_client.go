@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"time"
 	"utils"
 )
@@ -120,7 +121,7 @@ func (self *WebsocketClient) handleRequest(request *agent.Request) {
 func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response {
 	t := agent.Response_METRICS
 	r := &agent.Response{Type: &t}
-	r.TimeSeries = make([]*agent.TimeSeries, len(request.MetricNames), len(request.MetricNames))
+	r.TimeSeries = make([]*agent.TimeSeries, 0)
 	defaultLimit := int64(1)
 	params := &datastore.GetParams{StartTime: int64(1), EndTime: time.Now().Unix(), Database: self.config.Database(), IncludeContext: true}
 	if request.StartTime != nil {
@@ -134,9 +135,38 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 	if request.Limit != nil {
 		defaultLimit = *request.Limit
 	}
-	for i, n := range request.MetricNames {
+
+	metrics := map[string]bool{}
+	for _, n := range request.MetricNames {
+		metrics[self.config.Hostname+"."+n] = true
+	}
+
+	// look up the regex matches
+	if len(request.MetricRegexes) > 0 {
+		addNamesToLookup := func(metricName string) {
+			for _, regex := range request.MetricRegexes {
+				matches, err := regexp.MatchString(regex, metricName)
+				if err != nil {
+					log.Error("Error while using regex %s. Error: %s", regex, err)
+					continue
+				}
+				if matches {
+					metrics[metricName] = true
+					break
+				}
+			}
+		}
+		st := time.Now().Add(-(1 * time.Hour)).Unix()
+		if request.StartTime != nil {
+			st = *request.StartTime
+		}
+		self.timeSeriesDatastore.ReadSeriesIndex(params.Database, 1000, st, addNamesToLookup)
+	}
+
+	// now look up the metrics
+	for n, _ := range metrics {
 		params.Limit = defaultLimit
-		params.TimeSeries = self.config.Hostname + "." + n
+		params.TimeSeries = n
 		name := n
 		ts := &agent.TimeSeries{Name: &name, Points: make([]*agent.Point, 0)}
 		addPoint := func(point *agent.Point) error {
@@ -144,8 +174,9 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 			return nil
 		}
 		self.timeSeriesDatastore.ReadSeries(params, addPoint)
-		r.TimeSeries[i] = ts
+		r.TimeSeries = append(r.TimeSeries, ts)
 	}
+
 	return r
 }
 
