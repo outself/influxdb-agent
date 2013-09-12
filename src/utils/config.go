@@ -39,6 +39,10 @@ type Config struct {
 	RawFlushInterval string        `yaml:"flush-interval"`
 	FlushInterval    time.Duration `yaml:"-"`
 	UdpAddr          string        `yaml:"udp-addr"`
+
+	// plugins directories
+	PluginsDir       string `yaml:"plugins-dir"`
+	CustomPluginsDir string `yaml:"custom-plugins-dir"`
 }
 
 func (self *Config) Database() string {

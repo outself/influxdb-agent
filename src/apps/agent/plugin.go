@@ -92,7 +92,7 @@ func (self *Agent) monitorPlugins() {
 		for name, instances := range config.Plugins {
 			plugin, ok := plugins[name]
 			if !ok {
-				log.Error("Cannot find plugin '%s'. Error: %s", name, err)
+				log.Error("Cannot find plugin '%s'.", name)
 				continue
 			}
 

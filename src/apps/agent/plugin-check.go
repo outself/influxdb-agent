@@ -84,8 +84,16 @@ func (self *Agent) checkNewPlugins() {
 	}
 }
 
+func (self *Agent) GetInstalledPluginsVersion() (string, error) {
+	version, err := ioutil.ReadFile(path.Join(self.config.PluginsDir, "version"))
+	if err != nil {
+		return "", err
+	}
+	return string(version), nil
+}
+
 func (self *Agent) getAvailablePlugins() map[string]*PluginMetadata {
-	version, err := GetInstalledPluginsVersion()
+	version, err := self.GetInstalledPluginsVersion()
 	if err != nil && !os.IsNotExist(err) {
 		return nil
 	}
@@ -100,15 +108,15 @@ func (self *Agent) getAvailablePlugins() map[string]*PluginMetadata {
 		self.configClient.InstallPlugin(latestVersion)
 	}
 
-	pluginsDir := path.Join(PLUGINS_DIR, string(latestVersion))
+	pluginsDir := path.Join(self.config.PluginsDir, string(latestVersion))
 	plugins, err := getPluginsInfo(pluginsDir)
 	if err != nil {
 		log.Error("Cannot list directory '%s'. Error: %s", pluginsDir, err)
 		return nil
 	}
-	customPlugins, err := getPluginsInfo(CUSTOM_PLUGINS_DIR)
+	customPlugins, err := getPluginsInfo(self.config.CustomPluginsDir)
 	if err != nil {
-		log.Error("Cannot list directory '%s'. Error: %s", CUSTOM_PLUGINS_DIR, err)
+		log.Error("Cannot list directory '%s'. Error: %s", self.config.CustomPluginsDir, err)
 		return nil
 	}
 

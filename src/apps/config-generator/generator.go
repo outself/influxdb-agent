@@ -8,14 +8,16 @@ import (
 
 func main() {
 	var (
-		apiKey     = flag.String("api-key", "", "The api key from (Settings/Orginzation)")
-		appKey     = flag.String("app-key", "", "The application key from (Settings/Applications)")
-		env        = flag.String("environment", "production", "The environment from (Settings/Applications)")
-		udpHost    = flag.String("udp-host", "udp.apiv3.errplane.com", "The path to the generated config file")
-		httpHost   = flag.String("http-host", "w.apiv3.errplane.com", "The path to the generated config file")
-		configHost = flag.String("config-host", "c.apiv3.errplane.com", "The path to the generated config file")
-		path       = flag.String("path", "/etc/anomalous-agent/config.yml", "The path to the generated config file")
-		ws         = flag.String("config-ws", "ec2-23-20-52-199.compute-1.amazonaws.com:8095", "The url of the configuration service websocket")
+		apiKey           = flag.String("api-key", "", "The api key from (Settings/Orginzation)")
+		appKey           = flag.String("app-key", "", "The application key from (Settings/Applications)")
+		env              = flag.String("environment", "production", "The environment from (Settings/Applications)")
+		udpHost          = flag.String("udp-host", "udp.apiv3.errplane.com", "The path to the generated config file")
+		httpHost         = flag.String("http-host", "w.apiv3.errplane.com", "The path to the generated config file")
+		configHost       = flag.String("config-host", "c.apiv3.errplane.com", "The path to the generated config file")
+		path             = flag.String("path", "/etc/anomalous-agent/config.yml", "The path to the generated config file")
+		ws               = flag.String("config-ws", "ec2-23-20-52-199.compute-1.amazonaws.com:8095", "The url of the configuration service websocket")
+		pluginsDir       = flag.String("plugins-dir", "/data/anomalous-agent/shared/plugins", "The directory where the plugins will be downloaded")
+		customPluginsDir = flag.String("custom-plugins-dir", "/data/anomalous-agent/shared/custom-plugins", "The directory where custom plugins will be looked up")
 	)
 
 	flag.Parse()
@@ -67,6 +69,10 @@ datastore-dir: /data/anomalous-agent/shared/db
 config-websocket: %s												  # the location of the configuration server websocket
 websocket-ping: 60s													  # the websocket ping interval
 
+# plugins directories
+plugins-dir: %s
+custom-plugins-dir: %s
+
 # processes:
 #   - name:   mysqld
 #     start:  service mysql start             # the command to run to start the service
@@ -83,7 +89,7 @@ websocket-ping: 60s													  # the websocket ping interval
 #         port: 6379    # call the plugin with --port 6379
 `
 
-	content := fmt.Sprintf(sample, *udpHost, *httpHost, *apiKey, *appKey, *env, *configHost, *ws)
+	content := fmt.Sprintf(sample, *udpHost, *httpHost, *apiKey, *appKey, *env, *configHost, *ws, *pluginsDir, *customPluginsDir)
 	file, err := os.Create(*path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot open %s. Error: %s\n", *path, err)

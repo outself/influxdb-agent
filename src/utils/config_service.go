@@ -14,11 +14,6 @@ import (
 	"path"
 )
 
-const (
-	PLUGINS_DIR        = "/data/anomalous-agent/shared/plugins"
-	CUSTOM_PLUGINS_DIR = "/data/anomalous-agent/shared/custom-plugins"
-)
-
 type AgentConfiguration struct {
 	Plugins   map[string][]*Instance `json:"plugins"`
 	Processes []*Process             `json:"processes"`
@@ -120,14 +115,6 @@ func (self *ConfigServiceClient) GetMonitoringConfig() (*monitoring.MonitorConfi
 	return monitoring.ParseMonitorConfig(string(body), false)
 }
 
-func GetInstalledPluginsVersion() (string, error) {
-	version, err := ioutil.ReadFile(path.Join(PLUGINS_DIR, "version"))
-	if err != nil {
-		return "", err
-	}
-	return string(version), nil
-}
-
 func (self *ConfigServiceClient) InstallPlugin(version string) {
 	database := self.config.Database()
 	url := self.configServerUrl("/databases/%s/plugins/%s", database, version)
@@ -137,18 +124,18 @@ func (self *ConfigServiceClient) InstallPlugin(version string) {
 		return
 	}
 
-	filename := path.Join(PLUGINS_DIR, version+".tar.gz")
+	filename := path.Join(self.config.PluginsDir, version+".tar.gz")
 	if err := ioutil.WriteFile(filename, plugins, 0644); err != nil {
 		log.Error("Cannot write to %s. Error: %s", filename, err)
 		return
 	}
-	versionFilename := path.Join(PLUGINS_DIR, "version")
+	versionFilename := path.Join(self.config.PluginsDir, "version")
 	if err := ioutil.WriteFile(versionFilename, []byte(version), 0644); err != nil {
 		log.Error("Cannot write to %s. Error: %s", filename, err)
 		return
 	}
 
-	dir := path.Join(PLUGINS_DIR, version)
+	dir := path.Join(self.config.PluginsDir, version)
 	err = os.Mkdir(dir, 0755)
 	if err != nil {
 		log.Error("Cannot create directory '%s'", dir)
