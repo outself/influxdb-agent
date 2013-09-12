@@ -180,6 +180,9 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 
 	// now look up the metrics
 	for n, _ := range metrics {
+		if n == "" {
+			continue
+		}
 		params.Limit = defaultLimit
 		params.TimeSeries = rawStatPrefix + n
 		name := n
