@@ -19,7 +19,8 @@ src/code.google.com/p/log4go
 src/github.com/bmizerany/pat/
 src/github.com/pmylund/go-cache/
 src/github.com/howeyc/fsnotify/
-src/code.google.com/p/
+src/code.google.com/p/goplan9
+src/code.google.com/p/rog-go
 src/github.com/nsf/gocode/
 
 # binaries
