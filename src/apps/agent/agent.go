@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -288,12 +287,7 @@ func (self *Agent) ioStats(ch chan error) {
 			}
 
 			for _, diskUsage := range diskUsages {
-				isPartition, err := regexp.MatchString(".*[0-9]$", diskUsage.Name)
-				if err != nil {
-					log.Error("Error matching regex. Error: %s", err)
-					isPartition = false
-				}
-				if strings.Contains(diskUsage.Name, "ram") || strings.Contains(diskUsage.Name, "loop") || isPartition {
+				if strings.Contains(diskUsage.Name, "ram") || strings.Contains(diskUsage.Name, "loop") {
 					// ignore these device names
 					continue
 				}
