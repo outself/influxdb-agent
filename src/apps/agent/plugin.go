@@ -165,9 +165,7 @@ func (self *Agent) runPlugin(instance *agent.PluginInstance, plugin *utils.Plugi
 		// other metrics are written to plugins.<plugin-name>.<metric-name> with the given value
 		// all metrics have the host name as a dimension
 
-		dimensions := errplane.Dimensions{
-			"status_msg": output.msg,
-		}
+		dimensions := errplane.Dimensions{}
 		if instance.Name != "" {
 			dimensions["instance"] = instance.Name
 		}
