@@ -16,7 +16,7 @@ for host in `echo $hosts | tr ' ' '\n'`; do
 
     # scp $file $host:/tmp
     # ssh $host "sudo useradd -r errplane; echo $host | sudo tee /etc/hostname && sudo hostname $host"
-    ssh $host "cd /tmp && rm anomalous-agent*; wget https://s3.amazonaws.com/anomalous-agent/anomalous-agent_${version}_amd64.deb && \
+    ssh $host "cd /tmp && rm anomalous-agent*; wget https://s3.amazonaws.com/errplane-agent/anomalous-agent_${version}_amd64.deb && \
     sudo dpkg -i /tmp/anomalous-agent_${version}_amd64.deb ; \
     sudo -u anomalous anomalous-config-generator -api-key ignored -app-key app4you2love -http-host w$staging.apiv3.errplane.com \
     -udp-host udp$staging.apiv3.errplane.com -config-host c$staging.apiv3.errplane.com -environment $env; \
