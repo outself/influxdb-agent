@@ -160,6 +160,18 @@ func (self *ConfigServiceClient) GetCurrentPluginsVersion() (string, error) {
 	return string(version), nil
 }
 
+func (self *ConfigServiceClient) GetAgentConfiguration() (*agent.AgentConfiguration, error) {
+	database := self.config.Database()
+	url := self.configServerUrl("/databases/%s/agents/%s/configuration", database, self.config.Hostname)
+	body, err := GetBody(url)
+	if err != nil {
+		return nil, err
+	}
+	config := &agent.AgentConfiguration{}
+	err = json.Unmarshal(body, config)
+	return config, err
+}
+
 func (self *ConfigServiceClient) GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
 	config, err := self.GetPluginsToRun()
 	if err != nil {

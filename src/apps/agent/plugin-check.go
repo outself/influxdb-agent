@@ -52,14 +52,21 @@ func (self *Agent) checkNewPlugins() {
 	for {
 		plugins := self.getAvailablePlugins()
 
-		// TODO: don't report disabled plugins
+		disabledPlugins := make(map[string]bool)
+		agentConfiguration, err := self.configClient.GetAgentConfiguration()
+		if err == nil {
+			for _, plugin := range agentConfiguration.DisabledPlugins {
+				disabledPlugins[plugin] = true
+			}
+		}
 
-		// filter out plugins that are already installed
-		// pluginsToRun, err := self.configClient.GetPluginsToRun()
 		pluginsToCheck := make(map[string]*PluginMetadata)
-		pluginsToCheck = plugins
-
-		// remove the plugins that are already running
+		for name, plugin := range plugins {
+			if disabledPlugins[name] {
+				continue
+			}
+			pluginsToCheck[name] = plugin
+		}
 
 		availablePlugins := make([]string, 0)
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/errplane/errplane-go"
+	"github.com/errplane/errplane-go-common/agent"
 	"github.com/pmylund/go-cache"
 	"io/ioutil"
 	"os"
@@ -16,7 +17,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	. "utils"
+	"utils"
 )
 
 type PluginStateOutput int
@@ -56,8 +57,8 @@ const (
 )
 
 var (
-	DEFAULT_INSTANCE  = &Instance{"default", nil, nil}
-	DEFAULT_INSTANCES = []*Instance{&Instance{"", nil, nil}}
+	DEFAULT_INSTANCE  = &agent.PluginInstance{"default", nil}
+	DEFAULT_INSTANCES = []*agent.PluginInstance{DEFAULT_INSTANCE}
 	OutputCache       = cache.New(0, 0)
 )
 
@@ -72,17 +73,22 @@ type PluginOutput struct {
 // handles running plugins
 func (self *Agent) monitorPlugins() {
 	for {
-		// TODO: don't run disabled plugins
 		// TODO: get plugin configs from the v2 api
 
+		disabledPlugins := make(map[string]bool)
+		pluginsConfiguration := make(map[string]*agent.PluginConfiguration)
+		agentConfig, err := self.configClient.GetAgentConfiguration()
+		if err != nil {
+			log.Error("Cannot get agent configuration from server. Error: %s", err)
+		} else {
+			for _, plugin := range agentConfig.DisabledPlugins {
+				disabledPlugins[plugin] = true
+			}
+			for _, pluginConfiguration := range agentConfig.PluginsConfiguration {
+				pluginsConfiguration[pluginConfiguration.Name] = pluginConfiguration
+			}
+		}
 		plugins := self.getAvailablePlugins()
-		// if err != nil {
-		// 	log.Error("Error while getting configuration from backend. Error: %s", err)
-		// 	if previousConfig == nil {
-		// 		goto sleep
-		// 	}
-		// 	config = previousConfig
-		// }
 
 		log.Debug("Iterating through %d plugins", len(plugins))
 
@@ -90,7 +96,15 @@ func (self *Agent) monitorPlugins() {
 		plugins = self.getAvailablePlugins()
 
 		for _, plugin := range plugins {
+			if disabledPlugins[plugin.Name] {
+				log.Debug("Ignoring plugin %s because the user disabled it", plugin)
+				continue
+			}
+
 			instances := DEFAULT_INSTANCES
+			if pluginConfiguration := pluginsConfiguration[plugin.Name]; pluginConfiguration != nil {
+				instances = pluginConfiguration.Instances
+			}
 
 			for _, instance := range instances {
 				go self.runPlugin(instance, plugin)
@@ -101,10 +115,10 @@ func (self *Agent) monitorPlugins() {
 	}
 }
 
-func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
-	args := instance.ArgsList
-	for name, value := range instance.Args {
-		args = append(args, "--"+name, value)
+func (self *Agent) runPlugin(instance *agent.PluginInstance, plugin *utils.PluginMetadata) {
+	args := []string{}
+	for _, arg := range instance.Arguments {
+		args = append(args, "--"+arg.Name, arg.Value)
 	}
 	log.Debug("Running command %s %s", path.Join(plugin.Path, "status"), strings.Join(args, " "))
 	cmdPath := path.Join(plugin.Path, "status")
@@ -239,7 +253,7 @@ func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
 	}
 }
 
-func parsePluginOutput(plugin *PluginMetadata, cmdState ProcessState, firstLine string) (*PluginOutput, error) {
+func parsePluginOutput(plugin *utils.PluginMetadata, cmdState ProcessState, firstLine string) (*PluginOutput, error) {
 	outputType := plugin.Output
 	switch outputType {
 	case "nagios":
