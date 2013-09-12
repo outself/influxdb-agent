@@ -71,41 +71,32 @@ type PluginOutput struct {
 
 // handles running plugins
 func (self *Agent) monitorPlugins() {
-	var previousConfig *AgentConfiguration
-	var plugins map[string]*PluginMetadata
-
 	for {
-		config, err := self.configClient.GetPluginsToRun()
-		if err != nil {
-			log.Error("Error while getting configuration from backend. Error: %s", err)
-			if previousConfig == nil {
-				goto sleep
-			}
-			config = previousConfig
-		}
+		// TODO: don't run disabled plugins
+		// TODO: get plugin configs from the v2 api
 
-		log.Debug("Iterating through %d plugins", len(config.Plugins))
+		plugins := self.getAvailablePlugins()
+		// if err != nil {
+		// 	log.Error("Error while getting configuration from backend. Error: %s", err)
+		// 	if previousConfig == nil {
+		// 		goto sleep
+		// 	}
+		// 	config = previousConfig
+		// }
+
+		log.Debug("Iterating through %d plugins", len(plugins))
 
 		// get the list of plugins that should be turned from the config service
 		plugins = self.getAvailablePlugins()
 
-		for name, instances := range config.Plugins {
-			plugin, ok := plugins[name]
-			if !ok {
-				log.Error("Cannot find plugin '%s'.", name)
-				continue
-			}
-
-			if len(instances) == 0 {
-				instances = DEFAULT_INSTANCES
-			}
+		for _, plugin := range plugins {
+			instances := DEFAULT_INSTANCES
 
 			for _, instance := range instances {
 				go self.runPlugin(instance, plugin)
 			}
 		}
 
-	sleep:
 		time.Sleep(self.config.Sleep)
 	}
 }
@@ -167,7 +158,7 @@ func (self *Agent) runPlugin(instance *Instance, plugin *PluginMetadata) {
 			dimensions["instance"] = instance.Name
 		}
 
-		metricSuffix := self.getServerStatMetricName(fmt.Sprintf("plugins.%s.", plugin.Name))
+		metricSuffix := fmt.Sprintf("%s.plugins.%s.", self.config.Hostname, plugin.Name)
 		self.Report(metricSuffix+"status", 1.0, time.Now(), output.state.String(), dimensions)
 
 		// create a map from metric name to current value
