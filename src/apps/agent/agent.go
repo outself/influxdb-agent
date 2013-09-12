@@ -114,7 +114,7 @@ func (self *Agent) start() error {
 	go self.monitorProceses(ch)
 	go self.monitorPlugins()
 	go self.checkNewPlugins()
-	go self.startUdpListener()
+	//go self.startUdpListener()
 	go self.startLocalServer()
 	self.detector = NewAnomaliesDetector(self.config, self.configClient, self, self.timeseriesDatastore)
 	self.detector.Start()
