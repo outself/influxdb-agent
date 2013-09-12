@@ -33,6 +33,9 @@ datastore-dir: /tmp/db
 
 websocket-ping: 60s
 
+plugins-dir: /tmp/plugins/anomalous
+custom-plugins-dir: /tmp/plugins/custom
+
 # processes:
 #   - name:   mysqld
 #     start:  service mysql start             # the command to run to start the service
