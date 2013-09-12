@@ -17,7 +17,7 @@ TEMP=`getopt -o h --long start:,stop:,restart:,help \
 if [ $? != 0 ] ; then print_usage ; exit 1 ; fi
 
 function send_request() {
-    agent_port=`cat /tmp/errplane-agent.port`
+    agent_port=`cat /tmp/anomalous-agent.port`
     if [ $# -ne 2 ]; then
         echo "Usage: $0 action process-name"
         return 1

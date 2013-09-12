@@ -2,26 +2,26 @@
 
 echo "Linking new version"
 
-if [ -d /data/errplane-agent/plugins ]; then
-    mv /data/errplane-agent/plugins/* /data/errplane-agent/shared/plugins/
-    rmdir /data/errplane-agent/plugins/
+if [ -d /data/anomalous-agent/plugins ]; then
+    mv /data/anomalous-agent/plugins/* /data/anomalous-agent/shared/plugins/
+    rmdir /data/anomalous-agent/plugins/
 fi
-ln -sfn /data/errplane-agent/versions/REPLACE_VERSION /data/errplane-agent/current
-ln -sfn /data/errplane-agent/current/agent /usr/bin/errplane-agent
-ln -sfn /data/errplane-agent/current/agent_ctl /usr/bin/errplane-agent_ctl
-ln -sfn /data/errplane-agent/current/errplane-agent-daemon /usr/bin/errplane-agent-daemon
-ln -sfn /data/errplane-agent/current/config-generator /usr/bin/errplane-config-generator
-ln -sfn /data/errplane-agent/current/sudoers-generator /usr/bin/errplane-sudoers-generator
-ln -sfn /data/errplane-agent/shared/log.txt /data/errplane-agent/current/log.txt
+ln -sfn /data/anomalous-agent/versions/REPLACE_VERSION /data/anomalous-agent/current
+ln -sfn /data/anomalous-agent/current/agent /usr/bin/anomalous-agent
+ln -sfn /data/anomalous-agent/current/agent_ctl /usr/bin/anomalous-agent_ctl
+ln -sfn /data/anomalous-agent/current/anomalous-agent-daemon /usr/bin/anomalous-agent-daemon
+ln -sfn /data/anomalous-agent/current/config-generator /usr/bin/anomalous-config-generator
+ln -sfn /data/anomalous-agent/current/sudoers-generator /usr/bin/anomalous-sudoers-generator
+ln -sfn /data/anomalous-agent/shared/log.txt /data/anomalous-agent/current/log.txt
 
-chown errplane:errplane -R /data/errplane-agent/current
-chown errplane:errplane -R /usr/bin/errplane-agent
+chown anomalous:anomalous -R /data/anomalous-agent/current
+chown anomalous:anomalous -R /usr/bin/anomalous-agent
 
 if which update-rc.d > /dev/null 2>&1 ; then
-    update-rc.d -f errplane-agent remove
-    update-rc.d errplane-agent defaults
+    update-rc.d -f anomalous-agent remove
+    update-rc.d anomalous-agent defaults
 else
-    chkconfig --add errplane-agent
+    chkconfig --add anomalous-agent
 fi
 
-echo "Finished updating the Errplane agent"
+echo "Finished updating the Anomalous agent"

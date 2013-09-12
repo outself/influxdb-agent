@@ -1,23 +1,23 @@
 ### BEGIN INIT INFO
-# Provides:          errplane-agent
+# Provides:          anomalous-agent
 # Required-Start:    $all
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Start errplane agent at boot time
+# Short-Description: Start anomalous agent at boot time
 ### END INIT INFO
 
 # Using the lsb functions to perform the operations.
 . /lib/lsb/init-functions
 
 # Process name ( For display )
-name=errplane-agent
+name=anomalous-agent
 
 # Daemon name, where is the actual executable
 daemon=/usr/bin/$name
 
 # pid file for the daemon
-pidfile=/data/errplane-agent/shared/errplane-agent.pid
+pidfile=/data/anomalous-agent/shared/anomalous-agent.pid
 
 # If the daemon is not there, then exit.
 [ -x $daemon ] || exit 5
@@ -39,17 +39,17 @@ case $1 in
         # Log the message appropriately
         status="1"
         if which start-stop-daemon > /dev/null 2>&1; then
-            if start-stop-daemon -c errplane:errplane -d / -b --start --quiet --oknodo --exec $daemon; then
+            if start-stop-daemon -c anomalous:anomalous -d / -b --start --quiet --oknodo --exec $daemon; then
                 status="0"
             fi
         else
             cd /
-            if start_daemon -u errplane ${daemon}-daemon; then
+            if start_daemon -u anomalous ${daemon}-daemon; then
                 status="0"
             fi
         fi
         if [ "x$status" = "x0" ] ; then
-            log_success_msg "Errplane agent started"
+            log_success_msg "Anomalous agent started"
         else
             log_failure_msg "Could not start the agent"
         fi

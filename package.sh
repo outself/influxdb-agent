@@ -21,10 +21,10 @@ fi
 rvm use --create 1.9.3@errplane-agent
 gem install fpm
 version=$1
-data_dir=out_rpm/data/errplane-agent/versions/$version/
-config_dir=out_rpm/etc/errplane-agent
+data_dir=out_rpm/data/anomalous-agent/versions/$version/
+config_dir=out_rpm/etc/anomalous-agent
 initd_dir=out_rpm/etc/init.d/
-shared_dir=out_rpm/data/errplane-agent/shared
+shared_dir=out_rpm/data/anomalous-agent/shared
 plugins_dir=$shared_dir/plugins
 custom_plugins_dir=$shared_dir/custom-plugins
 
@@ -38,26 +38,26 @@ sed -i "s/REPLACE_VERSION/${version}/g" /tmp/post_install.sh
 
 #cleanup first
 
-rm errplane-agent*.rpm
-rm errplane-agent*.deb
+rm anomalous-agent*.rpm
+rm anomalous-agent*.deb
 
 function copy_files {
     cp agent $data_dir/
-    cp scripts/errplane-agent-daemon $data_dir/
+    cp scripts/anomalous-agent-daemon $data_dir/
     cp scripts/agent_ctl $data_dir/
     cp config-generator $data_dir/
     cp sudoers-generator $data_dir/
     cp opensource.md $data_dir/
-    cp scripts/init.d.sh $initd_dir/errplane-agent
+    cp scripts/init.d.sh $initd_dir/anomalous-agent
 }
 
 # build the x86_64 version
 UPDATE=on ./build.sh -v $version || exit 1
 copy_files
 pushd out_rpm
-fpm  -s dir -t rpm --rpm-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+fpm  -s dir -t rpm --rpm-user anomalous --deb-group anomalous --after-install /tmp/post_install.sh -n anomalous-agent -v $version . || exit $?
 mv *.rpm ../package/
-fpm  -s dir -t deb --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+fpm  -s dir -t deb --deb-user anomalous --deb-group anomalous --after-install /tmp/post_install.sh -n anomalous-agent -v $version . || exit $?
 mv *.deb ../package/
 popd
 
@@ -68,9 +68,9 @@ mkdir -p $data_dir $initd_dir $config_dir $log_dir $plugins_dir $shared_dir
 GOARCH=386 UPDATE=on ./build.sh -v $version || exit 1
 copy_files
 pushd out_rpm
-setarch i386 fpm -s dir -t rpm --rpm-user errplane --rpm-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+setarch i386 fpm -s dir -t rpm --rpm-user anomalous --rpm-group anomalous --after-install /tmp/post_install.sh -n anomalous-agent -v $version . || exit $?
 mv *.rpm ../package/
-fpm -s dir -t deb -a i386 --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+fpm -s dir -t deb -a i386 --deb-user anomalous --deb-group anomalous --after-install /tmp/post_install.sh -n anomalous-agent -v $version . || exit $?
 mv *.deb ../package/
 popd
 

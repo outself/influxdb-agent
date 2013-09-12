@@ -19,10 +19,10 @@ import (
 )
 
 func main() {
-	configFile := flag.String("config", "/etc/errplane-agent/config.yml", "The agent config file")
+	configFile := flag.String("config", "/etc/anomalous-agent/config.yml", "The agent config file")
 	flag.Parse()
 
-	pidFile := flag.String("pidfile", "/data/errplane-agent/shared/errplane-agent.pid", "The agent pid file")
+	pidFile := flag.String("pidfile", "/data/anomalous-agent/shared/anomalous-agent.pid", "The agent pid file")
 	flag.Parse()
 
 	config, err := utils.ParseConfig(*configFile)
