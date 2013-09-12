@@ -35,7 +35,12 @@ if [ ! -d $leveldb_dir -o ! -e $leveldb_dir/$leveldb_file -o ! -e $leveldb_dir/l
     popd
 fi
 
+stdcxx_location=`g++ -print-file-name=libstdc++.a`
+
 git submodule update --init
+
+export CGO_CFLAGS="-I$leveldb_dir/include"
+export CGO_LDFLAGS="$leveldb_dir/libleveldb.a $snappy_dir/.libs/libsnappy.a $stdcxx_location"
 
 go get $build_args github.com/errplane/errplane-go \
     github.com/errplane/gosigar \
