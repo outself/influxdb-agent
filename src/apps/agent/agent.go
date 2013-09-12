@@ -432,6 +432,7 @@ func (self *Agent) networkStats(ch chan error) {
 	skipFirst := true
 
 	prevNetwork := NetworkUtilization{}
+	var prevTimestamp time.Time
 	for {
 		network := NetworkUtilization{}
 		err := network.Get()
@@ -443,16 +444,17 @@ func (self *Agent) networkStats(ch chan error) {
 		}
 
 		if !skipFirst {
+			elapsedSeconds := timestamp.Sub(prevTimestamp).Seconds()
 			for name, utilization := range network {
-				rxBytes := float64(utilization.rxBytes - prevNetwork[name].rxBytes)
-				rxPackets := float64(utilization.rxPackets - prevNetwork[name].rxPackets)
-				rxDroppedPackets := float64(utilization.rxDroppedPackets - prevNetwork[name].rxDroppedPackets)
-				rxErrors := float64(utilization.rxErrors - prevNetwork[name].rxErrors)
+				rxBytes := float64(utilization.rxBytes-prevNetwork[name].rxBytes) / elapsedSeconds
+				rxPackets := float64(utilization.rxPackets-prevNetwork[name].rxPackets) / elapsedSeconds
+				rxDroppedPackets := float64(utilization.rxDroppedPackets-prevNetwork[name].rxDroppedPackets) / elapsedSeconds
+				rxErrors := float64(utilization.rxErrors-prevNetwork[name].rxErrors) / elapsedSeconds
 
-				txBytes := float64(utilization.txBytes - prevNetwork[name].txBytes)
-				txPackets := float64(utilization.txPackets - prevNetwork[name].txPackets)
-				txDroppedPackets := float64(utilization.txDroppedPackets - prevNetwork[name].txDroppedPackets)
-				txErrors := float64(utilization.txErrors - prevNetwork[name].txErrors)
+				txBytes := float64(utilization.txBytes-prevNetwork[name].txBytes) / elapsedSeconds
+				txPackets := float64(utilization.txPackets-prevNetwork[name].txPackets) / elapsedSeconds
+				txDroppedPackets := float64(utilization.txDroppedPackets-prevNetwork[name].txDroppedPackets) / elapsedSeconds
+				txErrors := float64(utilization.txErrors-prevNetwork[name].txErrors) / elapsedSeconds
 
 				metricPrefix := self.getServerStatMetricName(fmt.Sprintf("network.%s.", name))
 
@@ -468,6 +470,7 @@ func (self *Agent) networkStats(ch chan error) {
 		}
 		skipFirst = false
 		prevNetwork = network
+		prevTimestamp = timestamp
 		time.Sleep(self.config.Sleep)
 	}
 }
