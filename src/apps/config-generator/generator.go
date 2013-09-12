@@ -14,7 +14,7 @@ func main() {
 		udpHost    = flag.String("udp-host", "udp.apiv3.errplane.com", "The path to the generated config file")
 		httpHost   = flag.String("http-host", "w.apiv3.errplane.com", "The path to the generated config file")
 		configHost = flag.String("config-host", "c.apiv3.errplane.com", "The path to the generated config file")
-		path       = flag.String("path", "/etc/errplane-agent/config.yml", "The path to the generated config file")
+		path       = flag.String("path", "/etc/anomalous-agent/config.yml", "The path to the generated config file")
 		ws         = flag.String("config-ws", "ws.apiv3.errplane.com", "The url of the configuration service websocket")
 	)
 
