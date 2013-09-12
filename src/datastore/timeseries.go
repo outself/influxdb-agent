@@ -86,8 +86,9 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 	self.readLock.Lock()
 	defer self.readLock.Unlock()
 
+	endTime := time.Now().Unix()
 	for {
-		db, shouldClose, err := self.openDbOrUseTodays(startTime)
+		db, shouldClose, err := self.openDbOrUseTodays(endTime)
 		if db == nil || err != nil {
 			return err
 		}
@@ -131,7 +132,10 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 		if limit == 0 {
 			break
 		}
-		startTime += (24 * int64(time.Hour)) / int64(time.Second)
+		endTime -= (24 * int64(time.Hour)) / int64(time.Second)
+		if endTime < startTime {
+			break
+		}
 	}
 	return nil
 }
