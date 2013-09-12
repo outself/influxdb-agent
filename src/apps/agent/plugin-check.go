@@ -12,37 +12,45 @@ import (
 	. "utils"
 )
 
+func (self *Agent) sendPluginInfo(plugins map[string]*PluginMetadata, running []string) {
+	info := &agent.AgentPluginInformation{}
+
+	log.Info("Running plugins: %v\n", running)
+
+	for _, name := range running {
+		info.RunningPlugins = append(info.RunningPlugins, name)
+	}
+
+	for _, plugin := range plugins {
+		if !plugin.IsCustom {
+			continue
+		}
+		infoFile := path.Join(plugin.Path, "info.yml")
+		infoContent, err := ioutil.ReadFile(infoFile)
+		if err != nil {
+			log.Error("Cannot read %s. Error: %s", infoFile, err)
+			continue
+		}
+		pluginInfo := &agent.PluginInformationV2{}
+		err = goyaml.Unmarshal(infoContent, info)
+		if err != nil {
+			log.Error("Cannot parse %s. Error: %s", infoContent, err)
+			continue
+		}
+		pluginInfo.Name = plugin.Name
+		info.CustomPlugins = append(info.CustomPlugins, pluginInfo)
+	}
+
+	if err := self.configClient.SendPluginInformation(info); err != nil {
+		log.Error("Cannot send custom plugins information. Error: %s", err)
+	}
+}
+
 func (self *Agent) checkNewPlugins() {
 	log.Info("Checking for new plugins and for potentially useful plugins")
 
 	for {
 		plugins := self.getAvailablePlugins()
-
-		info := &agent.AgentPluginInformation{}
-		for _, plugin := range plugins {
-			if !plugin.IsCustom {
-				info.RunningPlugins = append(info.RunningPlugins, plugin.Name)
-				continue
-			}
-			infoFile := path.Join(plugin.Path, "info.yml")
-			infoContent, err := ioutil.ReadFile(infoFile)
-			if err != nil {
-				log.Error("Cannot read %s. Error: %s", infoFile, err)
-				continue
-			}
-			pluginInfo := &agent.PluginInformationV2{}
-			err = goyaml.Unmarshal(infoContent, info)
-			if err != nil {
-				log.Error("Cannot parse %s. Error: %s", infoContent, err)
-				continue
-			}
-			pluginInfo.Name = plugin.Name
-			info.CustomPlugins = append(info.CustomPlugins, pluginInfo)
-		}
-
-		if err := self.configClient.SendPluginInformation(info); err != nil {
-			log.Error("Cannot send custom plugins information. Error: %s", err)
-		}
 
 		// filter out plugins that are already installed
 		pluginsToRun, err := self.configClient.GetPluginsToRun()
@@ -76,6 +84,8 @@ func (self *Agent) checkNewPlugins() {
 			availablePlugins = append(availablePlugins, name)
 			log.Debug("Plugin %s should be installed on this server. availablePlugins: %v", name, availablePlugins)
 		}
+
+		self.sendPluginInfo(plugins, availablePlugins)
 
 		// update the agent information
 		self.configClient.SendPluginStatus(&AgentStatus{availablePlugins, time.Now().Unix()})
