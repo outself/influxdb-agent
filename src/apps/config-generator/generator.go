@@ -56,13 +56,13 @@ udp-addr: :8127					# the udp port on which the aggregator will listen
 
 sleep: 1m                                     # frequency of sampling (accepted suffix, s for seconds, m for minutes and h for hours)
 proxy:                                        # proxy to use when making http requests (e.g. https://201.20.177.185:8080/)
-log-file: /data/errplane-agent/shared/log.txt # the log file of the agent
+log-file: /data/anomalous-agent/shared/log.txt # the log file of the agent
 log-level: info                               # debug, info, warn, error
 top-n-processes: 5                            # For processes stats the agent will report the top n processes (by memory and cpu usage)
 top-n-sleep:     1m                           # Sampling frequency of the top n processes
 monitored-sleep: 10s                          # Sampling frequency of the monitored processes
 config-service:  %s											      # the location of the configuration service
-datastore-dir: /data/errplane-agent/shared/db
+datastore-dir: /data/anomalous-agent/shared/db
 
 config-websocket: %s												  # the location of the configuration server websocket
 websocket-ping: 60s													  # the websocket ping interval
