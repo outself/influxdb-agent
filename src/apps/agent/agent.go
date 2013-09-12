@@ -373,6 +373,12 @@ func (self *Agent) diskSpaceStats(ch chan error) {
 		timestamp := time.Now()
 
 		for _, fs := range fslist.List {
+			if strings.HasPrefix(fs.DirName, "/sys") || strings.HasPrefix(fs.DirName, "/run") ||
+				strings.HasPrefix(fs.DirName, "/dev") {
+				// ignore these special directories
+				continue
+			}
+
 			dir_name := fs.DirName
 
 			usage := sigar.FileSystemUsage{}
