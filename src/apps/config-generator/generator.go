@@ -15,7 +15,7 @@ func main() {
 		httpHost   = flag.String("http-host", "w.apiv3.errplane.com", "The path to the generated config file")
 		configHost = flag.String("config-host", "c.apiv3.errplane.com", "The path to the generated config file")
 		path       = flag.String("path", "/etc/anomalous-agent/config.yml", "The path to the generated config file")
-		ws         = flag.String("config-ws", "ws.apiv3.errplane.com", "The url of the configuration service websocket")
+		ws         = flag.String("config-ws", "ec2-23-20-52-199.compute-1.amazonaws.com:8095", "The url of the configuration service websocket")
 	)
 
 	flag.Parse()
