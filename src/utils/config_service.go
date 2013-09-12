@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	PLUGINS_DIR        = "/data/errplane-agent/shared/plugins"
-	CUSTOM_PLUGINS_DIR = "/data/errplane-agent/shared/custom-plugins"
+	PLUGINS_DIR        = "/data/anomalous-agent/shared/plugins"
+	CUSTOM_PLUGINS_DIR = "/data/anomalous-agent/shared/custom-plugins"
 )
 
 type AgentConfiguration struct {

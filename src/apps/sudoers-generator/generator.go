@@ -18,7 +18,7 @@ const (
 )
 
 func main() {
-	configFile := flag.String("config", "/etc/errplane-agent/config.yml", "The path to the config file")
+	configFile := flag.String("config", "/etc/anomalous-agent/config.yml", "The path to the config file")
 	output := flag.String("output", "/etc/sudoers.d/errplane", "The path to the output file")
 	appendMode := flag.Bool("append", true, "Whether to generate a new file or append a errplane section to the sudoers file")
 	diff := flag.Bool("show-diff", true, "Show diff and prompt before applying changes")

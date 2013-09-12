@@ -15,7 +15,7 @@ import (
 var snoozedProcesses *cache.Cache
 
 const (
-	PORT_FILE = "/tmp/errplane-agent.port"
+	PORT_FILE = "/tmp/anomalous-agent.port"
 )
 
 func (self *Agent) startLocalServer() {
