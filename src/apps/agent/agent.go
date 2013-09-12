@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -287,6 +288,16 @@ func (self *Agent) ioStats(ch chan error) {
 			}
 
 			for _, diskUsage := range diskUsages {
+				isPartition, err := regexp.MatchString(".*[0-9]$", diskUsage.Name)
+				if err != nil {
+					log.Error("Error matching regex. Error: %s", err)
+					isPartition = false
+				}
+				if strings.Contains(diskUsage.Name, "ram") || strings.Contains(diskUsage.Name, "loop") || isPartition {
+					// ignore these device names
+					continue
+				}
+
 				prevDiskUsage := devNameToDiskUsage[diskUsage.Name]
 				if prevDiskUsage == nil {
 					log.Warn("Cannot find %s in previous disk usage", diskUsage.Name)
