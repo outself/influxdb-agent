@@ -70,25 +70,6 @@ func (self *ConfigServiceClient) SendPluginInformation(info *agent.AgentPluginIn
 	return nil
 }
 
-func (self *ConfigServiceClient) SendPluginStatus(status *AgentStatus) {
-	data, err := json.Marshal(status)
-	if err != nil {
-		log.Error("Cannot marshal data to json")
-		return
-	}
-	database := self.config.Database()
-	hostname := self.config.Hostname
-	apiKey := self.config.ApiKey
-	url := self.configServerUrl("/databases/%s/agent/%s?api_key=%s", database, hostname, apiKey)
-	log.Debug("posting to '%s' -- %s", url, data)
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
-	if err != nil {
-		log.Error("Cannot post agent information to '%s'. Error: %s", url, err)
-		return
-	}
-	resp.Body.Close()
-}
-
 func (self *ConfigServiceClient) GetMonitoringConfig() (*monitoring.MonitorConfig, error) {
 	database := self.config.Database()
 	hostname := self.config.Hostname
@@ -98,7 +79,7 @@ func (self *ConfigServiceClient) GetMonitoringConfig() (*monitoring.MonitorConfi
 		return nil, fmt.Errorf("Configuration service hostname not configured properly")
 	}
 
-	url := self.configServerUrl("/databases/%s/agent/%s/monitoring-configuration?api_key=%s", database, hostname, apiKey)
+	url := self.configServerUrl("/v2/databases/%s/agents/%s/monitoring_config?api_key=%s", database, hostname, apiKey)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -162,7 +143,7 @@ func (self *ConfigServiceClient) GetCurrentPluginsVersion() (string, error) {
 
 func (self *ConfigServiceClient) GetAgentConfiguration() (*agent.AgentConfiguration, error) {
 	database := self.config.Database()
-	url := self.configServerUrl("/databases/%s/agents/%s/configuration", database, self.config.Hostname)
+	url := self.configServerUrl("/v2/databases/%s/agents/%s/configuration", database, self.config.Hostname)
 	body, err := GetBody(url)
 	if err != nil {
 		return nil, err

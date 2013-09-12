@@ -86,9 +86,6 @@ func (self *Agent) checkNewPlugins() {
 
 		self.sendPluginInfo(plugins, availablePlugins)
 
-		// update the agent information
-		self.configClient.SendPluginStatus(&AgentStatus{availablePlugins, time.Now().Unix()})
-
 		time.Sleep(self.config.Sleep)
 	}
 }
