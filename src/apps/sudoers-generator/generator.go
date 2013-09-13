@@ -46,14 +46,14 @@ func main() {
 	errplaneSection := bytes.NewBufferString("\n\nerrplane ALL= \\\n")
 
 	configServiceClient := utils.NewConfigServiceClient(config)
-	monitoredProcesses, err := configServiceClient.GetMonitoredProcesses(nil)
+	monitoredProcesses, err := configServiceClient.GetMonitoredProcesses()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot get the list of monitored processes\n")
 		os.Exit(1)
 	}
 
 	for procIdx, proc := range monitoredProcesses {
-		startCmdFields := strings.Fields(proc.StartCmd)
+		startCmdFields := strings.Fields(proc.Start)
 		startCmdPath, err := exec.LookPath(startCmdFields[0])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Cannot find executable %s on path\n", startCmdFields[0])
@@ -63,8 +63,8 @@ func main() {
 		startCmd := strings.Join(startCmdFields, " ")
 
 		stopCmd := ""
-		if proc.StopCmd != "" {
-			stopCmdFields := strings.Fields(proc.StopCmd)
+		if proc.Stop != "" {
+			stopCmdFields := strings.Fields(proc.Stop)
 			stopCmdPath, err := exec.LookPath(stopCmdFields[0])
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Cannot find executable %s on path\n", startCmdFields[0])
