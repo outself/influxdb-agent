@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"os"
+	"path"
 	"time"
 )
 
@@ -78,6 +79,20 @@ func (self *DatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
 		c.Assert(*points[idx].Value, Equals, value)
 	}
 
+}
+
+func (self *DatastoreSuite) TestOldDirectoryDelete(c *C) {
+	dirName := path.Join(self.dbDir, "timeseries", "20110101")
+	err := os.MkdirAll(dirName, 0755)
+	c.Assert(err, IsNil)
+	db, err := NewTimeseriesDatastore(self.dbDir)
+	defer db.Close()
+	c.Assert(err, IsNil)
+	time.Sleep(1 * time.Second)
+	info, err := os.Stat(dirName)
+	c.Assert(err, NotNil)
+	c.Assert(info, IsNil)
+	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
 func (self *DatastoreSuite) TestOneDay(c *C) {

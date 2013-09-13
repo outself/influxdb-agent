@@ -8,6 +8,8 @@ import (
 	"fmt"
 	. "github.com/errplane/errplane-go-common/agent"
 	"github.com/jmhodges/levigo"
+	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -39,7 +41,36 @@ func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
 		datastore.Close()
 		return nil, utils.WrapInErrplaneError(err)
 	}
+	go datastore.DeleteOldDb()
 	return datastore, nil
+}
+
+func (self *TimeseriesDatastore) DeleteOldDb() {
+	for {
+		files, err := ioutil.ReadDir(self.dir)
+		if err != nil {
+			log.Error("Cannot read directory %s. Error: %s", self.dir, err)
+			goto sleep
+		}
+
+		for _, fileInfo := range files {
+			day, err := time.Parse("20060102", fileInfo.Name())
+			if err != nil {
+				log.Error("Cannot parse directory name %s. Error: %s", fileInfo.Name(), err)
+				continue
+			}
+			if time.Now().Sub(day) < 3*24*time.Hour {
+				continue
+			}
+			err = os.RemoveAll(path.Join(self.dir, fileInfo.Name()))
+			if err != nil {
+				log.Error("Cannot delete %s. Error: %s", fileInfo.Name(), err)
+			}
+		}
+
+	sleep:
+		time.Sleep(1 * time.Hour)
+	}
 }
 
 func (self *TimeseriesDatastore) readPoint(database string, series string, id string) (*Point, error) {
