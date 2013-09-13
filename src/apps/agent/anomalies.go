@@ -207,7 +207,7 @@ func (self *AnomaliesDetector) reportPluginEvent(monitor *monitoring.Monitor, na
 }
 
 func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, value float64) {
-	if time.Now().Before(monitor.SnoozeUntil()) {
+	if time.Now().Before(monitor.SnoozeUntil()) || monitor.Disabled {
 		return
 	}
 
