@@ -154,6 +154,11 @@ func (self *AnomaliesDetector) Report(metricName string, value float64, context 
 }
 
 func (self *AnomaliesDetector) reportPluginEvent(monitor *monitoring.Monitor, name string, status string) {
+	// if the monitor is currently snoozed, then just return
+	if time.Now().Before(monitor.SnoozeUntil()) {
+		return
+	}
+
 	// we have a monitor that matches the given filename
 	for _, condition := range monitor.Conditions {
 		ok, err := regexp.MatchString(condition.AlertOnMatch, status)
@@ -202,6 +207,10 @@ func (self *AnomaliesDetector) reportPluginEvent(monitor *monitoring.Monitor, na
 }
 
 func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, value float64) {
+	if time.Now().Before(monitor.SnoozeUntil()) {
+		return
+	}
+
 	// we have a monitor that matches the given filename
 	for _, condition := range monitor.Conditions {
 		// split lines and see if any one of them matches
@@ -246,6 +255,10 @@ func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, va
 }
 
 func (self *AnomaliesDetector) ReportProcessEvent(process *monitoring.ProcessMonitor, state utils.Status) {
+	if time.Now().Before(process.SnoozeUntil()) {
+		return
+	}
+
 	key := fmt.Sprintf("processes/%s", process.Nickname)
 	_processEvents, ok := eventCache.Get(key)
 	if !ok {
