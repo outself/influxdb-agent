@@ -6,7 +6,6 @@ import (
 	. "github.com/errplane/errplane-go-common/agent"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"math/rand"
 	"os"
 	"time"
 )
