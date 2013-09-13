@@ -11,7 +11,6 @@ func main() {
 		apiKey           = flag.String("api-key", "", "The api key from (Settings/Orginzation)")
 		appKey           = flag.String("app-key", "", "The application key from (Settings/Applications)")
 		env              = flag.String("environment", "production", "The environment from (Settings/Applications)")
-		udpHost          = flag.String("udp-host", "udp.apiv3.errplane.com", "The path to the generated config file")
 		httpHost         = flag.String("http-host", "w.apiv3.errplane.com", "The path to the generated config file")
 		configHost       = flag.String("config-host", "c.apiv3.errplane.com", "The path to the generated config file")
 		path             = flag.String("path", "/etc/anomalous-agent/config.yml", "The path to the generated config file")
@@ -40,7 +39,6 @@ func main() {
 ##   Errplane agent configuration  ##
 #####################################
 
-udp-host: %s
 http-host: %s
 
 api-key:     %s # your api key (Settings/Organization)
@@ -89,7 +87,7 @@ custom-plugins-dir: %s
 #         port: 6379    # call the plugin with --port 6379
 `
 
-	content := fmt.Sprintf(sample, *udpHost, *httpHost, *apiKey, *appKey, *env, *configHost, *ws, *pluginsDir, *customPluginsDir)
+	content := fmt.Sprintf(sample, *httpHost, *apiKey, *appKey, *env, *configHost, *ws, *pluginsDir, *customPluginsDir)
 	file, err := os.Create(*path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot open %s. Error: %s\n", *path, err)

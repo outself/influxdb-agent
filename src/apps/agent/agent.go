@@ -71,7 +71,6 @@ type Agent struct {
 func NewAgent(config *utils.Config) (*Agent, error) {
 	ep := errplane.New(config.AppKey, config.Environment, config.ApiKey)
 	ep.SetHttpHost(config.HttpHost)
-	ep.SetUdpAddr(config.UdpHost)
 	if config.Proxy != "" {
 		ep.SetProxy(config.Proxy)
 	}

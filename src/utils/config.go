@@ -9,7 +9,6 @@ import (
 
 type Config struct {
 	Hostname          string `yaml:"-"`
-	UdpHost           string `yaml:"udp-host"`
 	HttpHost          string `yaml:"http-host"`
 	ApiKey            string `yaml:"api-key"`
 	AppKey            string `yaml:"app-key"`
