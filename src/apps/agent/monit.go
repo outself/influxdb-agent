@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	. "utils"
+	"utils"
 )
 
 type ProcsByName map[string]*ProcStat
@@ -43,7 +43,7 @@ func (self *Agent) monitorProceses(ch chan error) {
 	var previousProcessesSnapshot map[string]*ProcStat
 	var previousProcessesSnapshotByPid map[int]*ProcStat
 
-	var monitoredProcesses []*Process
+	var monitoredProcesses []*utils.Process
 
 	for {
 		// get the list of monitored processes from the config service
@@ -65,7 +65,7 @@ func (self *Agent) monitorProceses(ch chan error) {
 				status := getProcessStatus(monitoredProcess, processesByPid)
 
 				if status != monitoredProcess.LastStatus {
-					if status == UP {
+					if status == utils.UP {
 						self.reportProcessUp(monitoredProcess)
 					} else {
 						// holy shit, process down!
@@ -73,7 +73,7 @@ func (self *Agent) monitorProceses(ch chan error) {
 					}
 				}
 
-				if status == DOWN {
+				if status == utils.DOWN {
 					if _, ok := snoozedProcesses.Get(monitoredProcess.Name); !ok {
 						startProcess(monitoredProcess)
 					}
@@ -104,7 +104,7 @@ func (self *Agent) monitorProceses(ch chan error) {
 	}
 }
 
-func processMatches(monitoredProcess *Process, process interface{}) bool {
+func processMatches(monitoredProcess *utils.Process, process interface{}) bool {
 	name := ""
 	args := []string{}
 
@@ -134,7 +134,7 @@ func processMatches(monitoredProcess *Process, process interface{}) bool {
 	return false
 }
 
-func findProcess(process *Process, processes ProcsByPid) *ProcStat {
+func findProcess(process *utils.Process, processes ProcsByPid) *ProcStat {
 	for _, proc := range processes {
 		if processMatches(process, proc) {
 			return proc
@@ -144,14 +144,14 @@ func findProcess(process *Process, processes ProcsByPid) *ProcStat {
 	return nil
 }
 
-func getProcessStatus(process *Process, currentProcessesSnapshot ProcsByPid) Status {
+func getProcessStatus(process *utils.Process, currentProcessesSnapshot ProcsByPid) utils.Status {
 	if process := findProcess(process, currentProcessesSnapshot); process != nil {
-		return UP
+		return utils.UP
 	}
-	return DOWN
+	return utils.DOWN
 }
 
-func (self *Agent) reportProcessDown(process *Process) {
+func (self *Agent) reportProcessDown(process *utils.Process) {
 	log.Info("Process %s went down", process.Name)
 	self.reportProcessEvent(process, process.Regex, "down")
 }
@@ -164,7 +164,7 @@ func runCmd(cmd, user string) error {
 	return command.Run()
 }
 
-func startProcess(process *Process) {
+func startProcess(process *utils.Process) {
 	if process.StartCmd == "" {
 		log.Warn("No start command found for service %s", process.Name)
 	}
@@ -174,7 +174,7 @@ func startProcess(process *Process) {
 	}
 }
 
-func stopProcess(process *Process) {
+func stopProcess(process *utils.Process) {
 	log.Info("Trying to stop process %s", process.Name)
 
 	if process.StopCmd == "kill" || process.StopCmd == "" {
@@ -187,7 +187,7 @@ func stopProcess(process *Process) {
 	}
 }
 
-func killProcess(process *Process) {
+func killProcess(process *utils.Process) {
 	_, processes := getProcesses()
 	stat := findProcess(process, processes)
 	if stat == nil {
@@ -207,12 +207,12 @@ func killProcess(process *Process) {
 	log.Error("Couldn't kill process '%s'", process.Name)
 }
 
-func (self *Agent) reportProcessUp(process *Process) {
+func (self *Agent) reportProcessUp(process *utils.Process) {
 	log.Info("Process %s came back up reporting event", process.Name)
 	self.reportProcessEvent(process, process.Regex, "up")
 }
 
-func (self *Agent) reportProcessEvent(process *Process, regex, status string) {
+func (self *Agent) reportProcessEvent(process *utils.Process, regex, status string) {
 	if _, ok := snoozedProcesses.Get(process.Nickname); ok {
 		log.Debug("Not reporting %s event for '%s' since it is snoozed", status, process.Nickname)
 		return
