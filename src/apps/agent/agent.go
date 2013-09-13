@@ -372,7 +372,7 @@ func (self *Agent) diskSpaceStats(ch chan error) {
 
 		for _, fs := range fslist.List {
 			if strings.HasPrefix(fs.DirName, "/sys") || strings.HasPrefix(fs.DirName, "/run") ||
-				strings.HasPrefix(fs.DirName, "/dev") {
+				strings.HasPrefix(fs.DirName, "/dev") || strings.HasPrefix(fs.DirName, "/proc") {
 				// ignore these special directories
 				continue
 			}
