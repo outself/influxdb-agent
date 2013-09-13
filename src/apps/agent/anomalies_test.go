@@ -42,6 +42,10 @@ func (self *ReporterMock) Report(metric string, value float64, timestamp time.Ti
 	self.events = append(self.events, &MockedEvent{metric, value, timestamp, context, dimensions})
 }
 
+func (self *ReporterMock) TakeSnapshot(regex []string) (*agent.Snapshot, error) {
+	return nil, fmt.Errorf("Not implemented yet")
+}
+
 func (self *LogMonitoringSuite) SetUpSuite(c *C) {
 	self.reporter = &ReporterMock{}
 	self.dbDir = path.Join(os.TempDir(), "db")
