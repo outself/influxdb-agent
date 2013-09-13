@@ -287,17 +287,28 @@ func (self *AnomaliesDetector) ReportProcessEvent(process *monitoring.ProcessMon
 
 func (self *AnomaliesDetector) reportProcessDown(process *monitoring.ProcessMonitor) {
 	log.Info("Process %s went down", process.Nickname)
-	self.reportProcessEvent(process, "down")
+	regex := []string{
+		fmt.Sprintf("%s\\.stats.*", self.agentConfig.Hostname),
+		fmt.Sprintf("%s\\.process\\.%s.*", process.Nickname),
+	}
+	snapshot, err := self.reporter.TakeSnapshot(regex)
+	if err != nil {
+		log.Error("Cannot generate anomaly report. Error: %s\n", utils.WrapInErrplaneError(err))
+	}
+	self.reportProcessEvent(process, snapshot, "down")
 }
 
 func (self *AnomaliesDetector) reportProcessUp(process *monitoring.ProcessMonitor) {
 	log.Info("Process %s came back up reporting event", process.Nickname)
-	self.reportProcessEvent(process, "up")
+	self.reportProcessEvent(process, nil, "up")
 }
 
-func (self *AnomaliesDetector) reportProcessEvent(process *monitoring.ProcessMonitor, status string) {
-	metricName := fmt.Sprintf("%s.processes.%s.status", self.agentConfig.Hostname, process.Nickname)
-	self.Report(metricName, 1.0, status, nil)
+func (self *AnomaliesDetector) reportProcessEvent(process *monitoring.ProcessMonitor, snapshot *agent.Snapshot, status string) {
+	self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+		"process":    process.Nickname,
+		"snapshotId": snapshot.GetId(),
+	})
+
 }
 
 func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string, newLines []string) {
