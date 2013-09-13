@@ -14,17 +14,10 @@ import (
 	"path"
 )
 
-type AgentConfiguration struct {
-	Plugins   map[string][]*Instance `json:"plugins"`
-	Processes []*Process             `json:"processes"`
-}
-
 type AgentStatus struct {
 	Plugins   []string `json:"plugins"`
 	Timestamp int64    `json:"timestamp"`
 }
-
-var AgentInfo *AgentConfiguration
 
 type ConfigServiceClient struct {
 	config *Config
@@ -154,7 +147,7 @@ func (self *ConfigServiceClient) GetAgentConfiguration() (*agent.AgentConfigurat
 }
 
 func (self *ConfigServiceClient) GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
-	config, err := self.GetPluginsToRun()
+	config, err := self.GetAgentConfiguration()
 	if err != nil {
 		return nil, err
 	}
@@ -166,13 +159,21 @@ func (self *ConfigServiceClient) GetMonitoredProcesses(processes []*Process) ([]
 
 	returnedProcesses := make([]*Process, 0)
 
-	for _, process := range config.Processes {
+	for _, processMonitor := range config.ProcessMonitors {
+		process := &Process{
+			Name:      processMonitor.Name,
+			StatusCmd: processMonitor.Status,
+			Regex:     processMonitor.Regex,
+			User:      processMonitor.User,
+			StartCmd:  processMonitor.Start,
+			//Nickname:  processMonitor.Nickname,
+		}
 		if process.User == "" {
 			process.User = "root"
 		}
 
 		if process.StartCmd == "" {
-			process.StartCmd = fmt.Sprintf("service %s start", process.Nickname)
+			process.StartCmd = fmt.Sprintf("service %s start", process.Name)
 		}
 
 		if p := processesMap[process.Nickname]; p != nil {
@@ -181,23 +182,4 @@ func (self *ConfigServiceClient) GetMonitoredProcesses(processes []*Process) ([]
 		returnedProcesses = append(returnedProcesses, process)
 	}
 	return returnedProcesses, nil
-}
-
-func (self *ConfigServiceClient) GetPluginsToRun() (*AgentConfiguration, error) {
-	config := &AgentConfiguration{}
-	database := self.config.Database()
-	hostname := self.config.Hostname
-	apiKey := self.config.ApiKey
-	url := self.configServerUrl("/databases/%s/agent/%s/configuration?api_key=%s", database, hostname, apiKey)
-	body, err := GetBody(url)
-	if err != nil {
-		return nil, err
-	}
-	log.Debug("Received configuration: %s", string(body))
-	err = json.Unmarshal(body, config)
-	if err != nil {
-		return nil, err
-	}
-	log.Debug("Parsed response: %v", config)
-	return config, nil
 }
