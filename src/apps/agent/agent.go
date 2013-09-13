@@ -20,8 +20,6 @@ import (
 
 func main() {
 	configFile := flag.String("config", "/etc/anomalous-agent/config.yml", "The agent config file")
-	flag.Parse()
-
 	pidFile := flag.String("pidfile", "/data/anomalous-agent/shared/anomalous-agent.pid", "The agent pid file")
 	flag.Parse()
 
