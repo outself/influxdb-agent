@@ -12,6 +12,22 @@ import (
 	. "utils"
 )
 
+func (self *Agent) getExistingLogFiles() ([]string, error) {
+	monitoringConfig, err := self.configClient.GetMonitoringConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	logFiles := []string{}
+	for _, monitor := range monitoringConfig.Monitors {
+		if monitor.LogName == "" {
+			continue
+		}
+		logFiles = append(logFiles, monitor.LogName)
+	}
+	return logFiles, nil
+}
+
 func (self *Agent) sendPluginInfo(plugins map[string]*PluginMetadata, running []string) {
 	info := &agent.AgentPluginInformation{}
 
@@ -39,6 +55,20 @@ func (self *Agent) sendPluginInfo(plugins map[string]*PluginMetadata, running []
 		}
 		pluginInfo.Name = plugin.Name
 		info.CustomPlugins = append(info.CustomPlugins, pluginInfo)
+	}
+
+	logFiles, err := self.getExistingLogFiles()
+	if err != nil {
+		log.Error("Cannot get the list of log files monitors. Error: %s", err)
+	}
+
+	for _, logFile := range logFiles {
+		if _, err := os.Stat(logFile); err != nil {
+			continue
+		}
+		info.ExistingLogFiles = append(info.ExistingLogFiles, &agent.LogFile{
+			Name: logFile,
+		})
 	}
 
 	if err := self.configClient.SendPluginInformation(info); err != nil {
