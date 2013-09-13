@@ -30,12 +30,21 @@ type Event struct {
 	timestamp time.Time
 }
 
+type ProcessEvent struct {
+	status    utils.Status
+	timestamp time.Time
+}
+
 type LogEvents struct {
 	events []*LogEvent
 }
 
 type MetricEvents struct {
 	events []*Event
+}
+
+type ProcessEvents struct {
+	events []*ProcessEvent
 }
 
 var eventCache *cache.Cache
@@ -47,6 +56,7 @@ func init() {
 type Detector interface {
 	filesToMonitor() []string
 	ReportLogEvent(string, []string, []string)
+	ReportProcessEvent(*monitoring.ProcessMonitor, utils.Status)
 	Report(string, float64, string, errplane.Dimensions)
 }
 
@@ -233,6 +243,61 @@ func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, va
 		}
 		metricEvents.events = newEvents
 	}
+}
+
+func (self *AnomaliesDetector) ReportProcessEvent(process *monitoring.ProcessMonitor, state utils.Status) {
+	key := fmt.Sprintf("processes/%s", process.Nickname)
+	_processEvents, ok := eventCache.Get(key)
+	if !ok {
+		processEvents := &ProcessEvents{}
+		eventCache.Set(key, processEvents, 0)
+		_processEvents = processEvents
+	}
+
+	processEvents := _processEvents.(*ProcessEvents)
+
+	if len(processEvents.events) < 0 {
+		processEvents.events = append(processEvents.events, &ProcessEvent{
+			timestamp: time.Now(),
+			status:    state,
+		})
+		return
+	}
+
+	oldState := processEvents.events[0].status
+	newState := state
+	processEvents.events[0] = &ProcessEvent{
+		timestamp: time.Now(),
+		status:    state,
+	}
+
+	if oldState != newState {
+		if newState == utils.UP {
+			self.reportProcessUp(process)
+		} else {
+			// holy shit, process down!
+			self.reportProcessDown(process)
+		}
+	}
+
+	if newState == utils.DOWN {
+		startProcess(process)
+	}
+}
+
+func (self *AnomaliesDetector) reportProcessDown(process *monitoring.ProcessMonitor) {
+	log.Info("Process %s went down", process.Nickname)
+	self.reportProcessEvent(process, "down")
+}
+
+func (self *AnomaliesDetector) reportProcessUp(process *monitoring.ProcessMonitor) {
+	log.Info("Process %s came back up reporting event", process.Nickname)
+	self.reportProcessEvent(process, "up")
+}
+
+func (self *AnomaliesDetector) reportProcessEvent(process *monitoring.ProcessMonitor, status string) {
+	metricName := fmt.Sprintf("%s.processes.%s.status", self.agentConfig.Hostname, process.Nickname)
+	self.Report(metricName, 1.0, status, nil)
 }
 
 func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string, newLines []string) {

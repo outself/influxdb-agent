@@ -3,12 +3,12 @@ package main
 import (
 	log "code.google.com/p/log4go"
 	"github.com/bmizerany/pat"
+	"github.com/errplane/errplane-go-common/monitoring"
 	"github.com/pmylund/go-cache"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
-	. "utils"
 )
 
 // this file process local http request that contain commands to stop, start or restart a process
@@ -51,8 +51,8 @@ func (self *Agent) startLocalServer() {
 	}
 }
 
-func (self *Agent) getProcess(processName string) (*Process, error) {
-	monitoredProcesses, err := self.configClient.GetMonitoredProcesses(nil)
+func (self *Agent) getProcess(processName string) (*monitoring.ProcessMonitor, error) {
+	monitoredProcesses, err := self.configClient.GetMonitoredProcesses()
 	if err != nil {
 		return nil, err
 	}

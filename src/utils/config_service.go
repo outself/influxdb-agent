@@ -146,40 +146,26 @@ func (self *ConfigServiceClient) GetAgentConfiguration() (*agent.AgentConfigurat
 	return config, err
 }
 
-func (self *ConfigServiceClient) GetMonitoredProcesses(processes []*Process) ([]*Process, error) {
+func (self *ConfigServiceClient) GetMonitoredProcesses() ([]*monitoring.ProcessMonitor, error) {
 	config, err := self.GetAgentConfiguration()
 	if err != nil {
 		return nil, err
 	}
 
-	processesMap := make(map[string]*Process)
-	for _, process := range processes {
-		processesMap[process.Nickname] = process
-	}
-
-	returnedProcesses := make([]*Process, 0)
-
-	for _, processMonitor := range config.ProcessMonitors {
-		process := &Process{
-			Name:      processMonitor.Name,
-			StatusCmd: processMonitor.Status,
-			Regex:     processMonitor.Regex,
-			User:      processMonitor.User,
-			StartCmd:  processMonitor.Start,
-			//Nickname:  processMonitor.Nickname,
-		}
+	monitors := config.ProcessMonitors
+	for _, process := range monitors {
 		if process.User == "" {
 			process.User = "root"
 		}
 
-		if process.StartCmd == "" {
-			process.StartCmd = fmt.Sprintf("service %s start", process.Name)
+		if process.Start == "" {
+			process.Start = fmt.Sprintf("service %s start", process.Name)
 		}
 
-		if p := processesMap[process.Nickname]; p != nil {
-			process.LastStatus = p.LastStatus
+		if process.Stop == "" {
+			process.Stop = "kill"
 		}
-		returnedProcesses = append(returnedProcesses, process)
 	}
-	return returnedProcesses, nil
+
+	return monitors, nil
 }

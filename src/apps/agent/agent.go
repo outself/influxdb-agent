@@ -203,14 +203,14 @@ func (self *Agent) procStats(ch chan error) {
 			topNByCpu := mergedStats[0:n]
 			now := time.Now()
 			for _, stat := range topNByCpu {
-				if self.reportProcessCpuUsage(nil, &stat, now, true, ch) {
+				if self.reportProcessCpuUsage("", &stat, now, true) {
 					return
 				}
 			}
 			sort.Sort(ProcStatsSortableByMem(mergedStats))
 			topNByMem := mergedStats[0:n]
 			for _, stat := range topNByMem {
-				if self.reportProcessMemUsage(nil, &stat, now, true, ch) {
+				if self.reportProcessMemUsage("", &stat, now, true) {
 					return
 				}
 			}
@@ -221,15 +221,16 @@ func (self *Agent) procStats(ch chan error) {
 	}
 }
 
-func (self *Agent) reportProcessCpuUsage(monitoredProcess *utils.Process, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
-	return self.reportProcessMetric(monitoredProcess, stat, "cpu", now, top, ch)
+func (self *Agent) reportProcessCpuUsage(name string, stat *MergedProcStat, now time.Time, top bool) bool {
+	return self.reportProcessMetric(name, stat, "cpu", now, top)
 }
 
-func (self *Agent) reportProcessMemUsage(monitoredProcess *utils.Process, stat *MergedProcStat, now time.Time, top bool, ch chan error) bool {
-	return self.reportProcessMetric(monitoredProcess, stat, "mem", now, top, ch)
+func (self *Agent) reportProcessMemUsage(name string, stat *MergedProcStat, now time.Time, top bool) bool {
+	return self.reportProcessMetric(name, stat, "mem", now, top)
 }
 
-func (self *Agent) reportProcessMetric(monitoredProcess *utils.Process, stat *MergedProcStat, metricName string, now time.Time, top bool, ch chan error) bool {
+// name is optional and should used for the monitored processes only
+func (self *Agent) reportProcessMetric(name string, stat *MergedProcStat, metricName string, now time.Time, top bool) bool {
 	var value float64
 	var metric string
 
@@ -238,13 +239,11 @@ func (self *Agent) reportProcessMetric(monitoredProcess *utils.Process, stat *Me
 		suffix = ".top"
 	}
 
-	processName := ""
+	processName := name
 	var dimensions errplane.Dimensions
 
 	// is this a monitored process or one of the top N processes ?
-	if monitoredProcess != nil {
-		processName = monitoredProcess.Nickname
-	} else {
+	if processName == "" {
 		processName = strconv.Itoa(stat.pid)
 		dimensions = errplane.Dimensions{
 			"name":    stat.name,
