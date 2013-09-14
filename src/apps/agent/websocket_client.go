@@ -204,13 +204,14 @@ func (self *WebsocketClient) connect() error {
 	}
 	c, err := net.Dial("tcp", self.config.ConfigWebsocket)
 	if err != nil {
-		log.Error("Dial: %v", err)
+		log.Error("Cannot create a websocket to %s. Error: %v", self.config.ConfigWebsocket, err)
 		return err
 	}
+	log.Info("Creating a websocket to %s", self.config.ConfigWebsocket)
 	u, _ := url.Parse("/channel?database=" + self.config.AppKey + self.config.Environment + "&host=" + self.config.Hostname + "&api_key=" + self.config.ApiKey)
 	ws, _, err := websocket.NewClient(c, u, http.Header{}, 1024, 1024)
 	if err != nil {
-		log.Error("NewClient: %v", err)
+		log.Error("Cannot create a websocket client. Error: %s", err)
 		return err
 	}
 	self.ws = ws
