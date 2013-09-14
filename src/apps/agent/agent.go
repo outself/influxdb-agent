@@ -184,7 +184,7 @@ func (self *Agent) Report(metric string, value float64, timestamp time.Time, con
 	if metric != "errplane.anomalies" {
 		return
 	}
-	err := self.ep.Report(metric, value, timestamp, "", dimensions)
+	err := self.ep.Report(metric, value, timestamp, context, dimensions)
 	if err != nil {
 		log.Error("Error while sending report. Error: %s", err)
 	}
