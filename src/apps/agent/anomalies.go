@@ -325,8 +325,6 @@ func (self *AnomaliesDetector) reportProcessEvent(process *monitoring.ProcessMon
 }
 
 func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string, newLines []string) {
-	// log.Debug("Inside ReportLogEvent")
-
 	if self.monitoringConfig == nil {
 		return
 	}
@@ -377,7 +375,6 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 					before = append(before, oldLines[oldLinesIdx:]...)
 				}
 				before = append(before, newLines[:idx]...)
-
 				// get the following 10 lines
 				lastLine := int(math.Min(float64(idx+11), float64(len(newLines))))
 				after := newLines[idx+1 : lastLine]
@@ -396,22 +393,32 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 					break
 				}
 			}
-			logEvents.events = newEvents
+			if len(newEvents) > 0 {
+				logEvents.events = newEvents
+			}
 			// log.Debug("new events: %d", len(logEvents.events))
 			if len(logEvents.events) >= int(condition.AlertThreshold) {
 				context := ""
 				if condition.AlertThreshold == 1 {
 					event := logEvents.events[0]
 					context = strings.Join(event.before, "\n") + "\n" + event.lines + "\n" + strings.Join(event.after, "\n")
+				} else {
+					allMatchingLines := make([]string, 0)
+					for _, e := range logEvents.events {
+						allMatchingLines = append(allMatchingLines, e.lines)
+					}
+					context = strings.Join(allMatchingLines, "\n")
 				}
 
 				if !self.isSilenced(monitor, condition) {
 					self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), context, errplane.Dimensions{
-						"LogFile":        monitor.LogName,
-						"AlertWhen":      condition.AlertWhen.String(),
-						"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
-						"AlertOnMatch":   condition.AlertOnMatch,
-						"OnlyAfter":      condition.OnlyAfter.String(),
+						"logFile":        monitor.LogName,
+						"alertWhen":      condition.AlertWhen.String(),
+						"alertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
+						"alertOnMatch":   condition.AlertOnMatch,
+						"onlyAfter":      condition.OnlyAfter.String(),
+						"host":           self.agentConfig.Hostname,
+						"monitorId":      monitor.Id,
 					})
 				}
 			}
