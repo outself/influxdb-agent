@@ -54,7 +54,7 @@ func (self *CommonDatastore) openLevelDb(day string, createIfMissing bool) (*lev
 		return nil, err
 	}
 	opts := levigo.NewOptions()
-	opts.SetCache(levigo.NewLRUCache(100 * MEGABYTES))
+	opts.SetCache(levigo.NewLRUCache(10 * MEGABYTES))
 	opts.SetCreateIfMissing(createIfMissing)
 	opts.SetBlockSize(256 * KILOBYTES)
 	db, err := levigo.Open(dir, opts)
