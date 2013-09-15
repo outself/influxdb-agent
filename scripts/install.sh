@@ -15,7 +15,6 @@ api_key=$1
 app_key=$2
 
 echo "Using app_key: $app_key and api_key: $api_key"
-exit 2
 
 file=anomalous-agent_latest_amd64.tar.gz
 anomalous_dir=/data/anomalous-agent/
