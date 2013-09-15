@@ -78,7 +78,7 @@ func (self *WebsocketClient) readPump() {
 			time.Sleep(1 * time.Second)
 			self.connect()
 		} else {
-			self.ws.SetReadDeadline(time.Now().Add(self.pingPeriod))
+			self.ws.SetReadDeadline(time.Now().Add(self.config.WebsocketPing))
 			op, r, err := self.ws.NextReader()
 			if err != nil {
 				log.Error("Error reading from websocket: ", err)
