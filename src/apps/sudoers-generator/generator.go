@@ -43,12 +43,12 @@ func main() {
 
 	originalContent = removeErrplaneSection(originalContent)
 
-	errplaneSection := bytes.NewBufferString("\n\nerrplane ALL= \\\n")
+	errplaneSection := bytes.NewBufferString("\n\nanomalous ALL= \\\n")
 
 	configServiceClient := utils.NewConfigServiceClient(config)
 	monitoredProcesses, err := configServiceClient.GetMonitoredProcesses()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot get the list of monitored processes\n")
+		fmt.Fprintf(os.Stderr, "Cannot get the list of monitored processes. Error: %s\n", err)
 		os.Exit(1)
 	}
 
