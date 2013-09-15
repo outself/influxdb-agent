@@ -36,15 +36,13 @@ if ! which aws > /dev/null 2>&1; then
     exit 1
 fi
 
+rm -rf package
 if ! ./package.sh $version; then
     echo "Build failed. Aborting the release"
     exit 1
 fi
 
-git tag v$version
-git push origin --tags
-
-for filepath in `ls package/*`; do
+for filepath in `ls package/*.tar.gz`; do
     [ -e "$filepath" ] || continue
     echo "Uploading $filepath to S3"
     filename=`basename $filepath`
@@ -52,4 +50,8 @@ for filepath in `ls package/*`; do
     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key $filename --body $filepath --acl public-read
     AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key ${latest_filename} --body $filepath --acl public-read
 done
+AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key install.sh --body scripts/install.sh --acl public-read
 ./deploy.sh $version
+
+git tag v$version
+git push origin --tags
