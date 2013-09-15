@@ -284,7 +284,7 @@ func (self *AnomaliesDetector) ReportProcessEvent(process *monitoring.ProcessMon
 
 	processEvents := _processEvents.(*ProcessEvents)
 
-	if len(processEvents.events) < 0 {
+	if len(processEvents.events) == 0 {
 		processEvents.events = append(processEvents.events, &ProcessEvent{
 			timestamp: time.Now(),
 			status:    state,
