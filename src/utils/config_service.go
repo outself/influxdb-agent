@@ -136,7 +136,7 @@ func (self *ConfigServiceClient) GetCurrentPluginsVersion() (string, error) {
 
 func (self *ConfigServiceClient) GetAgentConfiguration() (*agent.AgentConfiguration, error) {
 	database := self.config.Database()
-	url := self.configServerUrl("/v2/databases/%s/agents/%s/configuration", database, self.config.Hostname)
+	url := self.configServerUrl("/v2/databases/%s/agents/%s/configuration?api_key=%s", database, self.config.Hostname, self.config.ApiKey)
 	body, err := GetBody(url)
 	if err != nil {
 		return nil, err
