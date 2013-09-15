@@ -30,7 +30,7 @@ func NewWebsocketClient(config *utils.Config, anomaliesDetector *AnomaliesDetect
 	cl := &WebsocketClient{
 		send:                make(chan *agent.Response),
 		config:              config,
-		pingPeriod:          (config.WebsocketPing * 9) / 10,
+		pingPeriod:          config.WebsocketPing / 2,
 		anomaliesDetector:   anomaliesDetector,
 		timeSeriesDatastore: timeSeriesDatastore,
 		snapshotDatastore:   snapshotDatastore,
