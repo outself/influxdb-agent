@@ -39,9 +39,7 @@ case $1 in
         # Log the message appropriately
         status="1"
         if which start-stop-daemon > /dev/null 2>&1; then
-            if start-stop-daemon -c anomalous:anomalous -d / -b --start --quiet --oknodo --exec $daemon; then
-                status="0"
-            fi
+            nohup start-stop-daemon -c anomalous:anomalous -d / --start --quiet --oknodo --pidfile $pidfile --exec $daemon >> /mnt/$name/shared/log.txt
         else
             cd /
             if start_daemon -u anomalous ${daemon}-daemon; then
