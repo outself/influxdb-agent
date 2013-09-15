@@ -16,7 +16,7 @@ UPDATE=on ./build.sh -v $version
 rm -rf package/anomalous-agent
 mkdir -p package/anomalous-agent
 pushd package
-cp ../agent anomalous-agent/agent
+cp ../agent anomalous-agent/
 cp ../sudoers-generator anomalous-agent/
 cp ../config-generator anomalous-agent/
 cp ../opensource.md anomalous-agent/
