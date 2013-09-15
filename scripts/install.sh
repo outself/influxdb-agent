@@ -22,7 +22,7 @@ anomalous_conf=/etc/anomalous-agent/config.yml
 link=https://s3.amazonaws.com/errplane-agent/$file
 
 # create the anomalous user if it doesn't exist already
-id anomalous || (echo "Creating 'anomalous' user" && useradd -r anomalous)
+id anomalous >/dev/null || (echo "Creating 'anomalous' user" && useradd -r anomalous)
 
 [ "x$TEMPDIR" == "x" ] && TEMPDIR=/tmp
 
