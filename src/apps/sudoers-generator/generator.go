@@ -127,6 +127,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Cannot write to %s. Error: %s\n", *output, err)
 		os.Exit(1)
 	}
+	if err := os.Chmod(*output, 0440); err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot change mode of %s. Error: %s\n", *output, err)
+		os.Exit(1)
+	}
 	os.Exit(0)
 }
 
