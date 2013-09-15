@@ -17,7 +17,7 @@ app_key=$2
 echo "Using app_key: $app_key and api_key: $api_key"
 
 file=anomalous-agent_latest_amd64.tar.gz
-anomalous_dir=/data/anomalous-agent/
+anomalous_dir=/data/anomalous-agent
 anomalous_conf=/etc/anomalous-agent/config.yml
 link=https://s3.amazonaws.com/errplane-agent/$file
 
