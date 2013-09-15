@@ -186,9 +186,11 @@ func (self *AnomaliesDetector) reportPluginEvent(monitor *monitoring.Monitor, na
 		if len(metricEvents.events) > 0 && time.Now().Sub(metricEvents.events[0].timestamp) > condition.OnlyAfter {
 			if !self.isSilenced(monitor, condition) {
 				self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
-					"PluginName":   name,
-					"AlertOnMatch": condition.AlertOnMatch,
-					"OnlyAfter":    condition.OnlyAfter.String(),
+					"type":         "plugin",
+					"pluginName":   name,
+					"alertOnMatch": condition.AlertOnMatch,
+					"onlyAfter":    condition.OnlyAfter.String(),
+					"host":         self.agentConfig.Hostname,
 				})
 			}
 		}
@@ -232,12 +234,25 @@ func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, va
 
 		if len(metricEvents.events) > 0 && time.Now().Sub(metricEvents.events[0].timestamp) > condition.OnlyAfter {
 			if !self.isSilenced(monitor, condition) {
-				self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
-					"StatName":       monitor.StatName,
-					"AlertWhen":      condition.AlertWhen.String(),
-					"AlertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
-					"OnlyAfter":      condition.OnlyAfter.String(),
-				})
+				startTime := time.Now().Add(-30 * time.Minute).Unix()
+				snapshotRequests := []*datastore.SnapshotRequest{
+					&datastore.SnapshotRequest{Regex: fmt.Sprintf("%s\\.stats.*", self.agentConfig.Hostname), StartTime: startTime},
+				}
+				snapshot, err := self.reporter.TakeSnapshot(snapshotRequests)
+				if err != nil {
+					log.Error("Cannot generate anomaly report. Error: %s\n", utils.WrapInErrplaneError(err))
+				} else {
+					self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+						"statName":       monitor.StatName,
+						"type":           "stat",
+						"alertWhen":      condition.AlertWhen.String(),
+						"alertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
+						"onlyAfter":      condition.OnlyAfter.String(),
+						"host":           self.agentConfig.Hostname,
+						"monitorId":      monitor.Id,
+						"snapshotId":     snapshot.GetId(),
+					})
+				}
 			}
 		}
 
@@ -300,11 +315,13 @@ func (self *AnomaliesDetector) ReportProcessEvent(process *monitoring.ProcessMon
 
 func (self *AnomaliesDetector) reportProcessDown(process *monitoring.ProcessMonitor) {
 	log.Info("Process %s went down", process.Nickname)
-	regex := []string{
-		fmt.Sprintf("%s\\.stats.*", self.agentConfig.Hostname),
-		fmt.Sprintf("%s\\.process\\.%s.*", process.Nickname),
+	startTime := time.Now().Add(-30 * time.Minute).Unix()
+	snapshotRequests := []*datastore.SnapshotRequest{
+		&datastore.SnapshotRequest{Regex: fmt.Sprintf("%s\\.stats.*", self.agentConfig.Hostname), StartTime: startTime},
+		&datastore.SnapshotRequest{Regex: fmt.Sprintf("%s\\.process\\.%s.*", process.Nickname), StartTime: startTime},
+		&datastore.SnapshotRequest{Regex: fmt.Sprintf("%s\\.logs.*", self.agentConfig.Hostname), StartTime: 1, Limit: 500},
 	}
-	snapshot, err := self.reporter.TakeSnapshot(regex)
+	snapshot, err := self.reporter.TakeSnapshot(snapshotRequests)
 	if err != nil {
 		log.Error("Cannot generate anomaly report. Error: %s\n", utils.WrapInErrplaneError(err))
 	}
@@ -317,11 +334,21 @@ func (self *AnomaliesDetector) reportProcessUp(process *monitoring.ProcessMonito
 }
 
 func (self *AnomaliesDetector) reportProcessEvent(process *monitoring.ProcessMonitor, snapshot *agent.Snapshot, status string) {
-	self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
-		"process":    process.Nickname,
-		"snapshotId": snapshot.GetId(),
-	})
+	if snapshot != nil {
+		self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+			"type":       "process",
+			"process":    process.Nickname,
+			"snapshotId": snapshot.GetId(),
+			"host":       self.agentConfig.Hostname,
+		})
 
+	} else {
+		self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
+			"type":    "process",
+			"process": process.Nickname,
+			"host":    self.agentConfig.Hostname,
+		})
+	}
 }
 
 func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string, newLines []string) {
@@ -411,15 +438,25 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 				}
 
 				if !self.isSilenced(monitor, condition) {
-					self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), context, errplane.Dimensions{
-						"logFile":        monitor.LogName,
-						"alertWhen":      condition.AlertWhen.String(),
-						"alertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
-						"alertOnMatch":   condition.AlertOnMatch,
-						"onlyAfter":      condition.OnlyAfter.String(),
-						"host":           self.agentConfig.Hostname,
-						"monitorId":      monitor.Id,
-					})
+					snapshotRequests := []*datastore.SnapshotRequest{
+						&datastore.SnapshotRequest{Regex: fmt.Sprintf("%s\\.logs.*", self.agentConfig.Hostname), StartTime: 1, Limit: 500},
+					}
+					snapshot, err := self.reporter.TakeSnapshot(snapshotRequests)
+					if err != nil {
+						log.Error("Cannot generate anomaly report. Error: %s\n", utils.WrapInErrplaneError(err))
+					} else {
+						self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), context, errplane.Dimensions{
+							"logFile":        monitor.LogName,
+							"type":           "log",
+							"alertWhen":      condition.AlertWhen.String(),
+							"alertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
+							"alertOnMatch":   condition.AlertOnMatch,
+							"onlyAfter":      condition.OnlyAfter.String(),
+							"host":           self.agentConfig.Hostname,
+							"monitorId":      monitor.Id,
+							"snapshotId":     snapshot.GetId(),
+						})
+					}
 				}
 			}
 		}

@@ -42,8 +42,8 @@ func (self *ReporterMock) Report(metric string, value float64, timestamp time.Ti
 	self.events = append(self.events, &MockedEvent{metric, value, timestamp, context, dimensions})
 }
 
-func (self *ReporterMock) TakeSnapshot(regex []string) (*agent.Snapshot, error) {
-	return nil, fmt.Errorf("Not implemented yet")
+func (self *ReporterMock) TakeSnapshot(snapshotRequests []*datastore.SnapshotRequest) (*agent.Snapshot, error) {
+	return &agent.Snapshot{}, nil
 }
 
 func (self *LogMonitoringSuite) SetUpSuite(c *C) {
@@ -158,11 +158,11 @@ func (self *LogMonitoringSuite) TestLogMonitoring(c *C) {
 	c.Assert(self.reporter.events[0].value, Equals, 2.0)
 	c.Assert(self.reporter.events[0].context, Equals, "")
 	c.Assert(self.reporter.events[0].dimensions, DeepEquals, errplane.Dimensions{
-		"LogFile":        self.tempFile,
-		"AlertWhen":      monitoring.GREATER_THAN.String(),
-		"AlertThreshold": "2",
-		"AlertOnMatch":   ".*WARN.*",
-		"OnlyAfter":      "2s",
+		"logFile":        self.tempFile,
+		"alertWhen":      monitoring.GREATER_THAN.String(),
+		"alertThreshold": "2",
+		"alertOnMatch":   ".*WARN.*",
+		"onlyAfter":      "2s",
 	})
 }
 
@@ -193,11 +193,11 @@ func (self *LogMonitoringSuite) TestLogContext(c *C) {
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
 	c.Assert(self.reporter.events[0].context, Equals, buffer.String())
 	c.Assert(self.reporter.events[0].dimensions, DeepEquals, errplane.Dimensions{
-		"LogFile":        self.tempFile,
-		"AlertWhen":      monitoring.GREATER_THAN.String(),
-		"AlertThreshold": "1",
-		"AlertOnMatch":   ".*ERROR.*",
-		"OnlyAfter":      "2s",
+		"logFile":        self.tempFile,
+		"alertWhen":      monitoring.GREATER_THAN.String(),
+		"alertThreshold": "1",
+		"alertOnMatch":   ".*ERROR.*",
+		"onlyAfter":      "2s",
 	})
 }
 
@@ -222,10 +222,10 @@ func (self *LogMonitoringSuite) TestMetricMonitoring(c *C) {
 
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
-	c.Assert(self.reporter.events[0].dimensions["StatName"], Equals, "foo.bar")
-	c.Assert(self.reporter.events[0].dimensions["AlertWhen"], Equals, ">")
-	c.Assert(self.reporter.events[0].dimensions["AlertThreshold"], Equals, "90")
-	c.Assert(self.reporter.events[0].dimensions["OnlyAfter"], Equals, "2s")
+	c.Assert(self.reporter.events[0].dimensions["statName"], Equals, "foo.bar")
+	c.Assert(self.reporter.events[0].dimensions["alertWhen"], Equals, ">")
+	c.Assert(self.reporter.events[0].dimensions["alertThreshold"], Equals, "90")
+	c.Assert(self.reporter.events[0].dimensions["onlyAfter"], Equals, "2s")
 }
 
 func (self *LogMonitoringSuite) TestPluginMonitoring(c *C) {
@@ -237,9 +237,9 @@ func (self *LogMonitoringSuite) TestPluginMonitoring(c *C) {
 
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
-	c.Assert(self.reporter.events[0].dimensions["PluginName"], Equals, "redis")
-	c.Assert(self.reporter.events[0].dimensions["AlertOnMatch"], Equals, "critical")
-	c.Assert(self.reporter.events[0].dimensions["OnlyAfter"], Equals, "2s")
+	c.Assert(self.reporter.events[0].dimensions["pluginName"], Equals, "redis")
+	c.Assert(self.reporter.events[0].dimensions["alertOnMatch"], Equals, "critical")
+	c.Assert(self.reporter.events[0].dimensions["onlyAfter"], Equals, "2s")
 }
 
 func (self *LogMonitoringSuite) TestResetPluginMonitoring(c *C) {

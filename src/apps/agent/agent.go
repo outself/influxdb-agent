@@ -53,7 +53,7 @@ func main() {
 
 type Reporter interface {
 	Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions)
-	TakeSnapshot(regex []string) (*agent.Snapshot, error)
+	TakeSnapshot(snapshotRequests []*datastore.SnapshotRequest) (*agent.Snapshot, error)
 }
 
 type Agent struct {
@@ -152,8 +152,8 @@ func (self *Agent) initLog() error {
 	return nil
 }
 
-func (self *Agent) TakeSnapshot(regex []string) (*agent.Snapshot, error) {
-	return self.snapshotDatastore.TakeSnapshot(regex, time.Now().Add(-15*time.Minute))
+func (self *Agent) TakeSnapshot(snapshotRequests []*datastore.SnapshotRequest) (*agent.Snapshot, error) {
+	return self.snapshotDatastore.TakeSnapshot(snapshotRequests)
 }
 
 func (self *Agent) Report(metric string, value float64, timestamp time.Time, context string, dimensions errplane.Dimensions) {

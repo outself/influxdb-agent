@@ -19,6 +19,13 @@ type SnapshotDatastore struct {
 	timeseriesDatastore *TimeseriesDatastore
 }
 
+type SnapshotRequest struct {
+	Regex     string
+	StartTime int64
+	EndTime   int64
+	Limit     int64
+}
+
 func NewSnapshotDatastore(dir string, database string, timeseriesDatastore *TimeseriesDatastore) (*SnapshotDatastore, error) {
 	writeOptions := levigo.NewWriteOptions()
 	readOptions := levigo.NewReadOptions()
@@ -58,40 +65,47 @@ func (self *SnapshotDatastore) GetSnapshot(id string) (*protocol.Snapshot, error
 	return snapshot, nil
 }
 
-func (self *SnapshotDatastore) TakeSnapshot(relatedMetricsRegex []string, start time.Time) (*protocol.Snapshot, error) {
-	metrics := map[string]bool{}
+func (self *SnapshotDatastore) TakeSnapshot(snapshotRequests []*SnapshotRequest) (*protocol.Snapshot, error) {
+	if len(snapshotRequests) == 0 {
+		return nil, nil
+	}
+	metrics := map[string]*SnapshotRequest{}
 	foo := func(metricName string) {
-		for _, regex := range relatedMetricsRegex {
-			matches, err := regexp.MatchString(regex, metricName)
+		for _, request := range snapshotRequests {
+			matches, err := regexp.MatchString(request.Regex, metricName)
 			if err != nil {
-				log.Error("Error while using regex %s. Error: %s", regex, err)
+				log.Error("Error while using regex %s. Error: %s", request.Regex, err)
 				continue
 			}
 			if matches {
-				metrics[metricName] = true
+				metrics[metricName] = request
 				break
 			}
 		}
 	}
-	self.timeseriesDatastore.ReadSeriesIndex(self.database, 0, start.Unix(), foo)
+	self.timeseriesDatastore.ReadSeriesIndex(self.database, 0, snapshotRequests[0].StartTime, foo)
 	uuid, err := uuid.NewV4()
 	if err != nil {
 		return nil, err
 	}
 	snapshotId := uuid.String()
 	creationTime := time.Now().Unix()
-	startTime := start.Unix()
 	allTimeseries := make([]*protocol.TimeSeries, 0)
-	for metric, _ := range metrics {
+	for metric, snapshotRequest := range metrics {
 		timeseries := make([]*protocol.Point, 0)
 		read := func(p *protocol.Point) error {
 			timeseries = append(timeseries, p)
 			return nil
 		}
+		limit := int64(1000)
+		if snapshotRequest.Limit > 0 {
+			limit = snapshotRequest.Limit
+		}
 		params := &GetParams{
 			Database:   self.database,
 			TimeSeries: metric,
-			StartTime:  start.Unix(),
+			StartTime:  snapshotRequest.StartTime,
+			Limit:      limit,
 		}
 		err := self.timeseriesDatastore.ReadSeries(params, read)
 		if err != nil {
@@ -107,7 +121,7 @@ func (self *SnapshotDatastore) TakeSnapshot(relatedMetricsRegex []string, start 
 		Id:           &snapshotId,
 		CreationTime: &creationTime,
 		EventTime:    &creationTime,
-		StartTime:    &startTime,
+		StartTime:    &snapshotRequests[0].StartTime,
 		EndTime:      &creationTime,
 		Series:       allTimeseries,
 	}
