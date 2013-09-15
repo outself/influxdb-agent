@@ -11,8 +11,8 @@ if [ $# -ne 2 ]; then
     exit 1
 fi
 
-api_key=$1
-app_key=$2
+app_key=$1
+api_key=$2
 
 echo "Using app_key: $app_key and api_key: $api_key"
 
