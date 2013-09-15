@@ -95,7 +95,7 @@ func (self *WebsocketClient) readPump() {
 					self.handleRequest(request)
 				}
 			} else if op == websocket.OpPong {
-				self.ws.SetReadDeadline(time.Now().Add(self.pingPeriod))
+				self.ws.SetReadDeadline(time.Now().Add(self.config.WebsocketPing))
 			}
 		}
 	}
