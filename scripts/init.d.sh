@@ -39,7 +39,7 @@ case $1 in
         # Log the message appropriately
         status="1"
         if which start-stop-daemon > /dev/null 2>&1; then
-            nohup start-stop-daemon -c anomalous:anomalous -d / --start --quiet --oknodo --pidfile $pidfile --exec $daemon 2>> /data/$name/shared/log.txt &
+            nohup start-stop-daemon -c anomalous:anomalous -d / --start --quiet --oknodo --pidfile $pidfile --exec $daemon > /dev/null 2>> /data/$name/shared/log.txt &
             status="0"
         else
             cd /
