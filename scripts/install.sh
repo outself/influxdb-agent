@@ -32,6 +32,7 @@ wget $link >/dev/null
 tar -xvzf $file >/dev/null
 version=`cat anomalous-agent/version`
 [ ! -d $anomalous_dir ] && mkdir -p $anomalous_dir
+[ ! -d $anomalous_dir/versions ] && mkdir -p $anomalous_dir/versions
 cp -r anomalous-agent $anomalous_dir/versions/$version
 
 # create some directories that that agent assume exist
@@ -48,6 +49,7 @@ ln -sfn $anomalous_dir/current/agent                    /usr/bin/anomalous-agent
 ln -sfn $anomalous_dir/current/config-generator         /usr/bin/anomalous-config-generator
 ln -sfn $anomalous_dir/current/sudoers-generator        /usr/bin/anomalous-sudoers-generator
 ln -sfn $anomalous_dir/shared/log.txt                   $anomalous_dir/current/log.txt
+ln -sfn $anomalous_dir/current/init.d.sh                /etc/init.d/anomalous-agent
 
 # make sure the files are owned by the right user
 chown anomalous:anomalous -R $anomalous_dir

@@ -20,6 +20,7 @@ cp ../agent anomalous-agent/agent
 cp ../sudoers-generator anomalous-agent/
 cp ../config-generator anomalous-agent/
 cp ../opensource.md anomalous-agent/
+cp ../scripts/init.d.sh anomalous-agent/
 echo -n $version > anomalous-agent/version
 tar -cvzf anomalous-agent_${version}_amd64.tar.gz anomalous-agent
 popd
