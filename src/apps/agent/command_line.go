@@ -3,7 +3,7 @@ package main
 import (
 	log "code.google.com/p/log4go"
 	"github.com/bmizerany/pat"
-	"github.com/errplane/errplane-go-common/monitoring"
+	"github.com/errplane/errplane-go-common/agent"
 	"github.com/pmylund/go-cache"
 	"io/ioutil"
 	"net"
@@ -51,7 +51,7 @@ func (self *Agent) startLocalServer() {
 	}
 }
 
-func (self *Agent) getProcess(processName string) (*monitoring.ProcessMonitor, error) {
+func (self *Agent) getProcess(processName string) (*agent.ProcessMonitor, error) {
 	monitoredProcesses, err := self.configClient.GetMonitoredProcesses()
 	if err != nil {
 		return nil, err

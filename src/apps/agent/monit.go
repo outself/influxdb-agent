@@ -3,7 +3,7 @@ package main
 import (
 	log "code.google.com/p/log4go"
 	"fmt"
-	"github.com/errplane/errplane-go-common/monitoring"
+	"github.com/errplane/errplane-go-common/agent"
 	"github.com/errplane/gosigar"
 	"os/exec"
 	"regexp"
@@ -87,7 +87,7 @@ func (self *Agent) monitorProceses(ch chan error) {
 	}
 }
 
-func processMatches(monitoredProcess *monitoring.ProcessMonitor, process interface{}) bool {
+func processMatches(monitoredProcess *agent.ProcessMonitor, process interface{}) bool {
 	name := ""
 	args := []string{}
 
@@ -117,7 +117,7 @@ func processMatches(monitoredProcess *monitoring.ProcessMonitor, process interfa
 	return false
 }
 
-func findProcess(process *monitoring.ProcessMonitor, processes ProcsByPid) *ProcStat {
+func findProcess(process *agent.ProcessMonitor, processes ProcsByPid) *ProcStat {
 	for _, proc := range processes {
 		if processMatches(process, proc) {
 			return proc
@@ -127,7 +127,7 @@ func findProcess(process *monitoring.ProcessMonitor, processes ProcsByPid) *Proc
 	return nil
 }
 
-func getProcessStatus(process *monitoring.ProcessMonitor, currentProcessesSnapshot ProcsByPid) utils.Status {
+func getProcessStatus(process *agent.ProcessMonitor, currentProcessesSnapshot ProcsByPid) utils.Status {
 	if process := findProcess(process, currentProcessesSnapshot); process != nil {
 		return utils.UP
 	}
@@ -142,7 +142,7 @@ func runCmd(cmd, user string) error {
 	return command.Run()
 }
 
-func startProcess(process *monitoring.ProcessMonitor) {
+func startProcess(process *agent.ProcessMonitor) {
 	if process.Start == "" {
 		log.Warn("No start command found for service %s", process.Name)
 	}
@@ -152,7 +152,7 @@ func startProcess(process *monitoring.ProcessMonitor) {
 	}
 }
 
-func stopProcess(process *monitoring.ProcessMonitor) {
+func stopProcess(process *agent.ProcessMonitor) {
 	log.Info("Trying to stop process %s", process.Name)
 
 	if process.Stop == "kill" || process.Stop == "" {
@@ -165,7 +165,7 @@ func stopProcess(process *monitoring.ProcessMonitor) {
 	}
 }
 
-func killProcess(process *monitoring.ProcessMonitor) {
+func killProcess(process *agent.ProcessMonitor) {
 	_, processes := getProcesses()
 	stat := findProcess(process, processes)
 	if stat == nil {

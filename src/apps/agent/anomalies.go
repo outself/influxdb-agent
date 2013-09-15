@@ -56,7 +56,7 @@ func init() {
 type Detector interface {
 	filesToMonitor() []string
 	ReportLogEvent(string, []string, []string)
-	ReportProcessEvent(*monitoring.ProcessMonitor, utils.Status)
+	ReportProcessEvent(*agent.ProcessMonitor, utils.Status)
 	Report(string, float64, string, errplane.Dimensions)
 }
 
@@ -269,7 +269,7 @@ func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, va
 	}
 }
 
-func (self *AnomaliesDetector) ReportProcessEvent(process *monitoring.ProcessMonitor, state utils.Status) {
+func (self *AnomaliesDetector) ReportProcessEvent(process *agent.ProcessMonitor, state utils.Status) {
 	if time.Now().Before(process.SnoozeUntil()) {
 		return
 	}
@@ -313,7 +313,7 @@ func (self *AnomaliesDetector) ReportProcessEvent(process *monitoring.ProcessMon
 	}
 }
 
-func (self *AnomaliesDetector) reportProcessDown(process *monitoring.ProcessMonitor) {
+func (self *AnomaliesDetector) reportProcessDown(process *agent.ProcessMonitor) {
 	log.Info("Process %s went down", process.Nickname)
 	startTime := time.Now().Add(-30 * time.Minute).Unix()
 	snapshotRequests := []*datastore.SnapshotRequest{
@@ -328,12 +328,12 @@ func (self *AnomaliesDetector) reportProcessDown(process *monitoring.ProcessMoni
 	self.reportProcessEvent(process, snapshot, "down")
 }
 
-func (self *AnomaliesDetector) reportProcessUp(process *monitoring.ProcessMonitor) {
+func (self *AnomaliesDetector) reportProcessUp(process *agent.ProcessMonitor) {
 	log.Info("Process %s came back up reporting event", process.Nickname)
 	self.reportProcessEvent(process, nil, "up")
 }
 
-func (self *AnomaliesDetector) reportProcessEvent(process *monitoring.ProcessMonitor, snapshot *agent.Snapshot, status string) {
+func (self *AnomaliesDetector) reportProcessEvent(process *agent.ProcessMonitor, snapshot *agent.Snapshot, status string) {
 	if snapshot != nil {
 		self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
 			"type":       "process",

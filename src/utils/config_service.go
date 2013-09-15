@@ -146,7 +146,7 @@ func (self *ConfigServiceClient) GetAgentConfiguration() (*agent.AgentConfigurat
 	return config, err
 }
 
-func (self *ConfigServiceClient) GetMonitoredProcesses() ([]*monitoring.ProcessMonitor, error) {
+func (self *ConfigServiceClient) GetMonitoredProcesses() ([]*agent.ProcessMonitor, error) {
 	config, err := self.GetAgentConfiguration()
 	if err != nil {
 		return nil, err
