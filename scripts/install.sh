@@ -33,6 +33,7 @@ tar -xvzf $file >/dev/null
 version=`cat anomalous-agent/version`
 [ ! -d $anomalous_dir ] && mkdir -p $anomalous_dir
 [ ! -d $anomalous_dir/versions ] && mkdir -p $anomalous_dir/versions
+[ ! -d `dirname $anomalous_conf` ] && mkdir -p `dirname $anomalous_conf`
 cp -r anomalous-agent $anomalous_dir/versions/$version
 
 # create some directories that that agent assume exist
@@ -53,6 +54,7 @@ ln -sfn $anomalous_dir/current/init.d.sh                /etc/init.d/anomalous-ag
 
 # make sure the files are owned by the right user
 chown anomalous:anomalous -R $anomalous_dir
+chown anomalous:anomalous -R `dirname $anomalous_conf`
 chown anomalous:anomalous -R /usr/bin/anomalous-agent
 
 if which update-rc.d > /dev/null 2>&1 ; then
@@ -62,7 +64,7 @@ else
     chkconfig --add anomalous-agent
 fi
 
-[ -x $anomalous_conf ] || sudo -u anomalous anomalous-config-generator -api-key $api_key -app-key $app_key
+[ -e $anomalous_conf ] || sudo -u anomalous anomalous-config-generator -api-key $api_key -app-key $app_key
 popd
 
 # finally restart the agent
