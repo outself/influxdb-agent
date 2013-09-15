@@ -73,8 +73,8 @@ func (self *Agent) monitorProceses(ch chan error) {
 				for _, monitoredProcess := range monitoredProcesses {
 					if processMatches(monitoredProcess, stat) {
 						i += 1
-						self.reportProcessCpuUsage(monitoredProcess.Nickname, &stat, now, false)
-						self.reportProcessMemUsage(monitoredProcess.Nickname, &stat, now, false)
+						self.reportProcessCpuUsage(monitoredProcess.Id, &stat, now, false)
+						self.reportProcessMemUsage(monitoredProcess.Id, &stat, now, false)
 					}
 				}
 			}
