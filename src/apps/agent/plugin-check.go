@@ -29,7 +29,9 @@ func (self *Agent) getExistingLogFiles() ([]string, error) {
 }
 
 func (self *Agent) sendPluginInfo(plugins map[string]*PluginMetadata, running []string) {
-	info := &agent.AgentPluginInformation{}
+	info := &agent.AgentPluginInformation{
+		ExistingLogFiles: []*agent.LogFile{},
+	}
 
 	log.Info("Running plugins: %v\n", running)
 
