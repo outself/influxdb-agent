@@ -38,7 +38,8 @@ version=`cat anomalous-agent/version`
 cp -r anomalous-agent $anomalous_dir/versions/$version
 
 # create some directories that that agent assume exist
-mkdir -p $anomalous_dir/shared/plugins/
+[ -d $anomalous_dir/shared/plugins ] || mkdir -p $anomalous_dir/shared/plugins
+[ -d $anomalous_dir/shared/custom-plugins ] || mkdir -p $anomalous_dir/shared/custom-plugins
 
 # touch the log file if it doesn't exist
 [ -e $anomalous_dir/shared/log.txt ] || touch $anomalous_dir/shared/log.txt
@@ -47,7 +48,7 @@ mkdir -p $anomalous_dir/shared/plugins/
 ln -sfn $anomalous_dir/versions/$version                $anomalous_dir/current
 ln -sfn $anomalous_dir/current/agent                    /usr/bin/anomalous-agent
 # ln -sfn $anomalous_dir/current/agent_ctl                /usr/bin/anomalous-agent_ctl
-# ln -sfn $anomalous_dir/current/anomalous-agent-daemon   /usr/bin/anomalous-agent-daemon
+ln -sfn $anomalous_dir/current/anomalous-agent-daemon   /usr/bin/anomalous-agent-daemon
 ln -sfn $anomalous_dir/current/config-generator         /usr/bin/anomalous-config-generator
 ln -sfn $anomalous_dir/current/sudoers-generator        /usr/bin/anomalous-sudoers-generator
 ln -sfn $anomalous_dir/shared/log.txt                   $anomalous_dir/current/log.txt
