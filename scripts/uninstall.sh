@@ -2,7 +2,7 @@
 
 set -e
 
-# finally restart the agent
+# stop the agent
 service anomalous-agent stop
 
 id anomalous >/dev/null && (echo "Removing 'anomalous' user" && userdel anomalous)
