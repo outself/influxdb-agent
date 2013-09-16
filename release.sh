@@ -56,3 +56,4 @@ AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key stagi
 
 git tag v$version
 git push origin --tags
+git push origin
