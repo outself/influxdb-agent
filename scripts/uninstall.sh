@@ -5,7 +5,7 @@ set -e
 # stop the agent
 service anomalous-agent stop
 
-id anomalous >/dev/null && (echo "Removing 'anomalous' user" && userdel anomalous)
+id anomalous >/dev/null && (echo "Removing 'anomalous' user" && userdel -f anomalous)
 
 anomalous_dir=/data/anomalous-agent
 anomalous_conf=/etc/anomalous-agent
