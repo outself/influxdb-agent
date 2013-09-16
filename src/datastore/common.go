@@ -18,6 +18,7 @@ type CommonDatastore struct {
 	readOptions    *levigo.ReadOptions
 	readLock       sync.Mutex
 	sequenceNumber uint32
+	cache          *levigo.Cache
 }
 
 func (self *CommonDatastore) nextSequenceNumber() uint32 {
@@ -44,6 +45,13 @@ func (self *CommonDatastore) openDb(epoch int64) error {
 	return nil
 }
 
+func (self *CommonDatastore) createDummyKey(db *levigo.DB, key string) {
+	if value, _ := db.Get(self.readOptions, []byte(key)); value != nil {
+		return
+	}
+	db.Put(self.writeOptions, []byte(key), []byte{})
+}
+
 func (self *CommonDatastore) openLevelDb(day string, createIfMissing bool) (*levigo.DB, error) {
 	dir := self.dir
 	if day != "" {
@@ -54,7 +62,16 @@ func (self *CommonDatastore) openLevelDb(day string, createIfMissing bool) (*lev
 		return nil, err
 	}
 	opts := levigo.NewOptions()
-	opts.SetCache(levigo.NewLRUCache(10 * MEGABYTES))
+	if self.cache == nil {
+		self.cache = levigo.NewLRUCache(10 * MEGABYTES)
+	}
+	if self.readOptions == nil {
+		self.readOptions = levigo.NewReadOptions()
+	}
+	if self.writeOptions == nil {
+		self.writeOptions = levigo.NewWriteOptions()
+	}
+	opts.SetCache(self.cache)
 	opts.SetCreateIfMissing(createIfMissing)
 	opts.SetBlockSize(256 * KILOBYTES)
 	db, err := levigo.Open(dir, opts)
@@ -62,15 +79,9 @@ func (self *CommonDatastore) openLevelDb(day string, createIfMissing bool) (*lev
 		return nil, utils.WrapInErrplaneError(err)
 	}
 
-	// this initializes the ends of the keyspace so seeks don't mess with us.
-	db.Put(self.writeOptions, []byte("9999"), []byte(""))
-	db.Put(self.writeOptions, []byte("0000"), []byte(""))
-	db.Put(self.writeOptions, []byte("aaaa"), []byte(""))
-	db.Put(self.writeOptions, []byte("zzzz"), []byte(""))
-	db.Put(self.writeOptions, []byte("AAAA"), []byte(""))
-	db.Put(self.writeOptions, []byte("ZZZZ"), []byte(""))
-	db.Put(self.writeOptions, []byte("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"), []byte(""))
-	db.Put(self.writeOptions, []byte("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"), []byte(""))
+	for _, key := range []string{"9999", "0000", "aaaa", "zzzz", "ZZZZ", "AAAA", strings.Repeat("!", 96), strings.Repeat("~", 96)} {
+		self.createDummyKey(db, key)
+	}
 	return db, nil
 }
 
@@ -96,6 +107,7 @@ func (self *CommonDatastore) Close() {
 
 	self.writeOptions.Close()
 	self.readOptions.Close()
+	self.cache.Close()
 	if self.db != nil {
 		self.db.Close()
 	}

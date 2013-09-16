@@ -7,6 +7,7 @@ import (
 	"github.com/errplane/errplane-go-common/agent"
 	"github.com/garyburd/go-websocket/websocket"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -131,6 +132,7 @@ func (self *WebsocketClient) getSnapshot(request *agent.Request) *agent.Response
 }
 
 func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response {
+	log.Debug("Reading metrics: %v", request)
 	t := agent.Response_METRICS
 	r := &agent.Response{Type: &t}
 	r.TimeSeries = make([]*agent.TimeSeries, 0)
@@ -141,6 +143,11 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 		defaultLimit = int64(1000)
 		params.StartTime = *request.StartTime
 	}
+
+	fiveHoursAgo := float64(time.Now().Add(-5 * time.Hour).Unix())
+	st := float64(params.StartTime)
+	params.StartTime = int64(math.Max(fiveHoursAgo, st))
+
 	if request.EndTime != nil {
 		params.EndTime = *request.EndTime
 	}
@@ -171,11 +178,7 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 				}
 			}
 		}
-		st := time.Now().Add(-(1 * time.Hour)).Unix()
-		if request.StartTime != nil {
-			st = *request.StartTime
-		}
-		self.timeSeriesDatastore.ReadSeriesIndex(params.Database, 1000, st, addNamesToLookup)
+		self.timeSeriesDatastore.ReadSeriesIndex(params.Database, 1000, time.Now().Add(-1*time.Hour).Unix(), addNamesToLookup)
 	}
 
 	// now look up the metrics

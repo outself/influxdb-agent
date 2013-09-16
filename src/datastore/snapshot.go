@@ -4,7 +4,6 @@ import (
 	"code.google.com/p/goprotobuf/proto"
 	log "code.google.com/p/log4go"
 	protocol "github.com/errplane/errplane-go-common/agent"
-	"github.com/jmhodges/levigo"
 	"github.com/nu7hatch/gouuid"
 	"path"
 	"regexp"
@@ -27,14 +26,10 @@ type SnapshotRequest struct {
 }
 
 func NewSnapshotDatastore(dir string, database string, timeseriesDatastore *TimeseriesDatastore) (*SnapshotDatastore, error) {
-	writeOptions := levigo.NewWriteOptions()
-	readOptions := levigo.NewReadOptions()
 	datastore := &SnapshotDatastore{
 		CommonDatastore: CommonDatastore{
-			dir:          path.Join(dir, "snapshots"),
-			writeOptions: writeOptions,
-			readOptions:  readOptions,
-			readLock:     sync.Mutex{},
+			dir:      path.Join(dir, "snapshots"),
+			readLock: sync.Mutex{},
 		},
 		timeseriesDatastore: timeseriesDatastore,
 		database:            database,

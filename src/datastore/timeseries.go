@@ -27,14 +27,10 @@ type TimeseriesDatastore struct {
 }
 
 func NewTimeseriesDatastore(dir string) (*TimeseriesDatastore, error) {
-	writeOptions := levigo.NewWriteOptions()
-	readOptions := levigo.NewReadOptions()
 	datastore := &TimeseriesDatastore{
 		CommonDatastore: CommonDatastore{
-			dir:          path.Join(dir, "timeseries"),
-			writeOptions: writeOptions,
-			readOptions:  readOptions,
-			readLock:     sync.Mutex{},
+			dir:      path.Join(dir, "timeseries"),
+			readLock: sync.Mutex{},
 		},
 	}
 	if err := datastore.openDb(time.Now().Unix()); err != nil {
@@ -118,6 +114,9 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 	defer self.readLock.Unlock()
 
 	endTime := time.Now().Unix()
+	if limit <= 0 || limit > 100000 {
+		limit = 100000
+	}
 	for {
 		db, shouldClose, err := self.openDbOrUseTodays(endTime)
 		if db == nil || err != nil {
@@ -135,9 +134,6 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 
 		beginningKey := fmt.Sprintf("%s~i~", database)
 		key := fmt.Sprintf("%s~i~.............................", database)
-		if limit <= 0 || limit > 100000 {
-			limit = 100000
-		}
 
 		it.Seek([]byte(key))
 
@@ -223,10 +219,10 @@ func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point
 				}
 			}
 		}
+		endTime -= 24 * int64(time.Hour) / int64(time.Second)
 		if params.Limit == 0 || endTime < params.StartTime {
 			break
 		}
-		endTime -= 24 * int64(time.Hour) / int64(time.Second)
 	}
 	return nil
 }
