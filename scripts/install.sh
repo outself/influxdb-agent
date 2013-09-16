@@ -28,7 +28,7 @@ id anomalous >/dev/null || (echo "Creating 'anomalous' user" && useradd -r anoma
 
 pushd $TEMPDIR
 echo "Downloading package from $link"
-rm $file
+rm -f $file
 wget $link >/dev/null
 tar -xvzf $file >/dev/null
 version=`cat anomalous-agent/version`
