@@ -123,7 +123,16 @@ func (self *AnomaliesDetector) Report(metricName string, value float64, context 
 	}
 
 	for _, monitor := range self.monitoringConfig.Monitors {
-		if monitor.StatName == metricName {
+		match := monitor.StatName == metricName
+		var err error
+		if monitor.StatRegex != "" {
+			match, err = regexp.MatchString(monitor.StatRegex, metricName)
+			if err != nil {
+				log.Error("Invalid regex %s. Error: %s", monitor.StatRegex, err)
+			}
+		}
+
+		if match {
 			self.reportMetricEvent(monitor, value)
 			continue
 		}
@@ -141,8 +150,12 @@ func (self *AnomaliesDetector) Report(metricName string, value float64, context 
 		}
 
 		pluginName := matches[1]
-		match, err := regexp.MatchString(monitor.PluginName, pluginName)
-		if !match || err != nil {
+		match, err = regexp.MatchString(monitor.PluginName, pluginName)
+		if err != nil {
+			log.Error("Invalid regex %s. Error: %s", monitor.PluginName, err)
+			continue
+		}
+		if !match {
 			// doesn't match the monitor regex
 			continue
 		}
@@ -244,6 +257,7 @@ func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, va
 				} else {
 					self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
 						"statName":       monitor.StatName,
+						"statRegex":      monitor.StatRegex,
 						"type":           "stat",
 						"alertWhen":      condition.AlertWhen.String(),
 						"alertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),

@@ -105,6 +105,16 @@ func (self *LogMonitoringSuite) SetUpTest(c *C) {
 				},
 			},
 			&monitoring.Monitor{
+				StatRegex: ".*baz.*",
+				Conditions: []*monitoring.Condition{
+					&monitoring.Condition{
+						AlertWhen:      monitoring.GREATER_THAN,
+						AlertThreshold: 90.0,
+						OnlyAfter:      2 * time.Second,
+					},
+				},
+			},
+			&monitoring.Monitor{
 				PluginName: "redis",
 				Conditions: []*monitoring.Condition{
 					&monitoring.Condition{
@@ -223,6 +233,21 @@ func (self *LogMonitoringSuite) TestMetricMonitoring(c *C) {
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
 	c.Assert(self.reporter.events[0].dimensions["statName"], Equals, "foo.bar")
+	c.Assert(self.reporter.events[0].dimensions["alertWhen"], Equals, ">")
+	c.Assert(self.reporter.events[0].dimensions["alertThreshold"], Equals, "90")
+	c.Assert(self.reporter.events[0].dimensions["onlyAfter"], Equals, "2s")
+}
+
+func (self *LogMonitoringSuite) TestRegexMetricMonitoring(c *C) {
+	self.agent.detector.Report("foo.baz", 95.0, "", nil)
+
+	time.Sleep(2 * time.Second)
+
+	self.agent.detector.Report("bar.baz", 95.0, "", nil)
+
+	c.Assert(self.reporter.events, HasLen, 1)
+	c.Assert(self.reporter.events[0].value, Equals, 1.0)
+	c.Assert(self.reporter.events[0].dimensions["statRegex"], Equals, ".*baz.*")
 	c.Assert(self.reporter.events[0].dimensions["alertWhen"], Equals, ">")
 	c.Assert(self.reporter.events[0].dimensions["alertThreshold"], Equals, "90")
 	c.Assert(self.reporter.events[0].dimensions["onlyAfter"], Equals, "2s")
