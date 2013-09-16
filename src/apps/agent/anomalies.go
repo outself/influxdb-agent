@@ -230,7 +230,7 @@ func (self *AnomaliesDetector) reportMetricEvent(monitor *monitoring.Monitor, va
 	for _, condition := range monitor.Conditions {
 		// split lines and see if any one of them matches
 		key := fmt.Sprintf("%#v/%#v", monitor, condition)
-		if value < condition.AlertThreshold {
+		if !condition.AlertWhen.CrossedThreshold(condition.AlertThreshold, value) {
 			eventCache.Delete(key)
 			return
 		}
