@@ -150,9 +150,9 @@ func (self *DatastoreSuite) TestSnapshotIdUniqueness(c *C) {
 
 	startTime := time.Now().Add(-5 * time.Minute)
 
-	snapshot1, err := db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: startTime}})
+	snapshot1, err := db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: startTime.Unix()}})
 	c.Assert(err, IsNil)
-	snapshot2, err := db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: startTime}})
+	snapshot2, err := db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: startTime.Unix()}})
 	c.Assert(err, IsNil)
 	fmt.Printf("snapshot1.Id = %s, snapshot2.Id = %s\n", *snapshot1.Id, *snapshot2.Id)
 	c.Assert(*snapshot1.Id, Not(Equals), *snapshot2.Id)
@@ -185,7 +185,7 @@ func (self *DatastoreSuite) TestSnapshotTaking(c *C) {
 	err = timeseriesDb.WritePoints(database, "timeseries2", points)
 	c.Assert(err, IsNil)
 
-	snapshot, err := db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: startTime}})
+	snapshot, err := db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: startTime.Unix()}})
 	c.Assert(err, IsNil)
 	existingSnapshot, err := db.GetSnapshot(snapshot.GetId())
 	c.Assert(err, IsNil)

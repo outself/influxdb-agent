@@ -166,14 +166,12 @@ func (self *LogMonitoringSuite) TestLogMonitoring(c *C) {
 
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 2.0)
-	c.Assert(self.reporter.events[0].context, Equals, "")
-	c.Assert(self.reporter.events[0].dimensions, DeepEquals, errplane.Dimensions{
-		"logFile":        self.tempFile,
-		"alertWhen":      monitoring.GREATER_THAN.String(),
-		"alertThreshold": "2",
-		"alertOnMatch":   ".*WARN.*",
-		"onlyAfter":      "2s",
-	})
+	c.Assert(self.reporter.events[0].context, Equals, "WARN: testing\nWARN: testing should exist")
+	c.Assert(self.reporter.events[0].dimensions["logFile"], Equals, self.tempFile)
+	c.Assert(self.reporter.events[0].dimensions["alertWhen"], Equals, monitoring.GREATER_THAN.String())
+	c.Assert(self.reporter.events[0].dimensions["alertThreshold"], Equals, "2")
+	c.Assert(self.reporter.events[0].dimensions["alertOnMatch"], Equals, ".*WARN.*")
+	c.Assert(self.reporter.events[0].dimensions["onlyAfter"], Equals, "2s")
 }
 
 func (self *LogMonitoringSuite) TestLogContext(c *C) {
@@ -202,13 +200,11 @@ func (self *LogMonitoringSuite) TestLogContext(c *C) {
 	c.Assert(self.reporter.events, HasLen, 1)
 	c.Assert(self.reporter.events[0].value, Equals, 1.0)
 	c.Assert(self.reporter.events[0].context, Equals, buffer.String())
-	c.Assert(self.reporter.events[0].dimensions, DeepEquals, errplane.Dimensions{
-		"logFile":        self.tempFile,
-		"alertWhen":      monitoring.GREATER_THAN.String(),
-		"alertThreshold": "1",
-		"alertOnMatch":   ".*ERROR.*",
-		"onlyAfter":      "2s",
-	})
+	c.Assert(self.reporter.events[0].dimensions["logFile"], Equals, self.tempFile)
+	c.Assert(self.reporter.events[0].dimensions["alertWhen"], Equals, monitoring.GREATER_THAN.String())
+	c.Assert(self.reporter.events[0].dimensions["alertThreshold"], Equals, "1")
+	c.Assert(self.reporter.events[0].dimensions["alertOnMatch"], Equals, ".*ERROR.*")
+	c.Assert(self.reporter.events[0].dimensions["onlyAfter"], Equals, "2s")
 }
 
 func (self *LogMonitoringSuite) TestResetMetricMonitoring(c *C) {
