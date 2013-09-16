@@ -340,13 +340,17 @@ func (self *AnomaliesDetector) reportProcessEvent(process *agent.ProcessMonitor,
 			"process":    process.Nickname,
 			"snapshotId": snapshot.GetId(),
 			"host":       self.agentConfig.Hostname,
+			"status":     "down",
+			"monitorId":  process.Id,
 		})
 
 	} else {
 		self.reporter.Report("errplane.anomalies", 1.0, time.Now(), "", errplane.Dimensions{
-			"type":    "process",
-			"process": process.Nickname,
-			"host":    self.agentConfig.Hostname,
+			"type":      "process",
+			"process":   process.Nickname,
+			"host":      self.agentConfig.Hostname,
+			"status":    "up",
+			"monitorId": process.Id,
 		})
 	}
 }
