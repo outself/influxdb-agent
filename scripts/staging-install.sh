@@ -66,7 +66,10 @@ else
     chkconfig --add anomalous-agent
 fi
 
-[ -e $anomalous_conf ] || sudo -u anomalous anomalous-config-generator -api-key $api_key -app-key $app_key -http-host w.staging.apiv3.errplane.com -config-host c.staging.apiv3.errplane.com
+[ -e $anomalous_conf ] || sudo -u anomalous anomalous-config-generator -api-key $api_key -app-key $app_key \
+    -http-host w.staging.apiv3.errplane.com \
+    -config-host c.staging.apiv3.errplane.com \
+    -config-ws ec2-23-20-52-199.compute-1.amazonaws.com:8095
 popd
 
 # finally restart the agent
