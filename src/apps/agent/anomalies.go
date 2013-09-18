@@ -395,15 +395,12 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 					}
 					continue
 				}
-				// log.Debug("%s matches %s", lowerCasedCondition, lowerCased)
 				matchingLines = append(matchingLines, idx)
 			}
 
 			if len(matchingLines) == 0 {
 				continue
 			}
-
-			// log.Debug("matches: %d", len(matchingLines))
 
 			key := fmt.Sprintf("%#v/%#v", monitor, condition)
 			_logEvents, ok := eventCache.Get(key)
@@ -414,6 +411,11 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 			}
 
 			logEvents := _logEvents.(*LogEvents)
+			if condition.OnlyAfter == 0 || condition.AlertThreshold <= 1 {
+				// if the time isn't set or if we're alerting on every match, then clear the old events
+				logEvents.events = nil
+			}
+
 			for _, idx := range matchingLines {
 				// get the previous 10 lines to create the context
 				oldLinesIdx := 10 - idx
@@ -429,21 +431,20 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 				logEvents.events = append(logEvents.events, &LogEvent{time.Now(), before, newLines[idx], after})
 			}
 
-			// remove all events that are older than "OnlyAfter"
-			thresholdTime := time.Now().Add(-condition.OnlyAfter)
-			var newEvents []*LogEvent
-			// log.Debug("threshold time: %s", thresholdTime)
-			for idx, event := range logEvents.events {
-				// log.Debug("event timestamp: %s", event.timestamp)
-				if event.timestamp.After(thresholdTime) {
-					newEvents = logEvents.events[idx:]
-					break
+			if condition.OnlyAfter > 0 {
+
+				// remove all events that are older than "OnlyAfter"
+				thresholdTime := time.Now().Add(-condition.OnlyAfter)
+				var newEvents []*LogEvent
+				for idx, event := range logEvents.events {
+					if event.timestamp.After(thresholdTime) {
+						newEvents = logEvents.events[idx:]
+						break
+					}
 				}
-			}
-			if len(newEvents) > 0 {
 				logEvents.events = newEvents
 			}
-			// log.Debug("new events: %d", len(logEvents.events))
+
 			if len(logEvents.events) >= int(condition.AlertThreshold) {
 				context := ""
 				if condition.AlertThreshold == 1 {
@@ -457,26 +458,29 @@ func (self *AnomaliesDetector) ReportLogEvent(filename string, oldLines []string
 					context = strings.Join(allMatchingLines, "\n")
 				}
 
-				if !self.isSilenced(monitor, condition) {
-					snapshotRequests := []*datastore.SnapshotRequest{
-						&datastore.SnapshotRequest{Regex: fmt.Sprintf("%s\\.logs.*", self.agentConfig.Hostname), StartTime: 1, Limit: 500},
-					}
-					snapshot, err := self.reporter.TakeSnapshot(snapshotRequests)
-					if err != nil {
-						log.Error("Cannot generate anomaly report. Error: %s\n", utils.WrapInErrplaneError(err))
-					} else {
-						self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), context, errplane.Dimensions{
-							"logFile":        monitor.LogName,
-							"type":           "log",
-							"alertWhen":      condition.AlertWhen.String(),
-							"alertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
-							"alertOnMatch":   condition.AlertOnMatch,
-							"onlyAfter":      condition.OnlyAfter.String(),
-							"host":           self.agentConfig.Hostname,
-							"monitorId":      monitor.Id,
-							"snapshotId":     snapshot.GetId(),
-						})
-					}
+				if self.isSilenced(monitor, condition) {
+					log.Debug("Suppressing alert, condition is temporarily silenced")
+					continue
+				}
+
+				snapshotRequests := []*datastore.SnapshotRequest{
+					&datastore.SnapshotRequest{Regex: fmt.Sprintf("%s\\.logs.*", self.agentConfig.Hostname), StartTime: 1, Limit: 500},
+				}
+				snapshot, err := self.reporter.TakeSnapshot(snapshotRequests)
+				if err != nil {
+					log.Error("Cannot generate anomaly report. Error: %s\n", utils.WrapInErrplaneError(err))
+				} else {
+					self.reporter.Report("errplane.anomalies", float64(len(logEvents.events)), time.Now(), context, errplane.Dimensions{
+						"logFile":        monitor.LogName,
+						"type":           "log",
+						"alertWhen":      condition.AlertWhen.String(),
+						"alertThreshold": strconv.FormatFloat(condition.AlertThreshold, 'f', -1, 64),
+						"alertOnMatch":   condition.AlertOnMatch,
+						"onlyAfter":      condition.OnlyAfter.String(),
+						"host":           self.agentConfig.Hostname,
+						"monitorId":      monitor.Id,
+						"snapshotId":     snapshot.GetId(),
+					})
 				}
 			}
 		}
