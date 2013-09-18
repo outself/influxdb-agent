@@ -121,7 +121,7 @@ func (self *Agent) watchLogFile() {
 			if _, ok := logFiles[path]; ok {
 				continue
 			}
-			log.Info("Adding log watcher for %s", path)
+			log.Debug("Adding log watcher for %s", path)
 			err = watcher.Watch(path)
 			if err != nil {
 				log.Error("Cannot open %s. Error: %s", path, err)
@@ -141,7 +141,7 @@ func (self *Agent) watchLogFile() {
 				continue
 			}
 			delete(logFiles, path)
-			log.Info("Removing log watcher for %s", path)
+			log.Debug("Removing log watcher for %s", path)
 			watcher.RemoveWatch(path)
 		}
 		select {
