@@ -70,21 +70,6 @@ websocket-ping: 60s													  # the websocket ping interval
 # plugins directories
 plugins-dir: %s
 custom-plugins-dir: %s
-
-# processes:
-#   - name:   mysqld
-#     start:  service mysql start             # the command to run to start the service
-#     stop:   service mysql start             # the command to run to stop the service
-#     status: name                            # check the status of the process using the specified method:
-#     regex: .*ruby.*status-monitor.*         # see 'status' above
-#     user:   root                            # the agent will run the start and stop command using 'sudo -u username command-to-run'
-
-# enabled-plugins:
-#   - name: redis       # the name of the plugin
-#     instances:        # optional, otherwise the agent will assume there is one instance running and will pass no args to the plugin
-#     - name: default   # optional, default value is 'default'
-#       args:
-#         port: 6379    # call the plugin with --port 6379
 `
 
 	content := fmt.Sprintf(sample, *httpHost, *apiKey, *appKey, *env, *configHost, *ws, *pluginsDir, *customPluginsDir)
