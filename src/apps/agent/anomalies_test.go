@@ -92,6 +92,12 @@ func (self *LogMonitoringSuite) SetUpTest(c *C) {
 						AlertOnMatch:   ".*ERROR.*",
 						OnlyAfter:      2 * time.Second,
 					},
+					&monitoring.Condition{
+						AlertWhen:      monitoring.GREATER_THAN,
+						AlertThreshold: 1,
+						AlertOnMatch:   ".*SINGLE.*",
+						OnlyAfter:      0,
+					},
 				},
 			},
 			&monitoring.Monitor{
@@ -151,6 +157,26 @@ func (self *LogMonitoringSuite) TestLogStorage(c *C) {
 	})
 	c.Assert(points, HasLen, 1)
 	c.Assert(*points[0].Context, Equals, content)
+}
+
+func (self *LogMonitoringSuite) TestLogMonitoringWithSingleMatches(c *C) {
+	time.Sleep(1 * time.Second)
+
+	file, err := os.OpenFile(self.tempFile, os.O_APPEND|os.O_RDWR, 0644)
+	c.Assert(err, IsNil)
+	fmt.Fprint(file, "SINGLE\n")
+	file.Close()
+
+	time.Sleep(1 * time.Second)
+
+	c.Assert(self.reporter.events, HasLen, 1)
+	c.Assert(self.reporter.events[0].value, Equals, 1.0)
+	c.Assert(self.reporter.events[0].context, Equals, "\nSINGLE\n")
+	c.Assert(self.reporter.events[0].dimensions["logFile"], Equals, self.tempFile)
+	c.Assert(self.reporter.events[0].dimensions["alertWhen"], Equals, monitoring.GREATER_THAN.String())
+	c.Assert(self.reporter.events[0].dimensions["alertThreshold"], Equals, "1")
+	c.Assert(self.reporter.events[0].dimensions["alertOnMatch"], Equals, ".*SINGLE.*")
+	c.Assert(self.reporter.events[0].dimensions["onlyAfter"], Equals, "0")
 }
 
 func (self *LogMonitoringSuite) TestLogMonitoring(c *C) {
