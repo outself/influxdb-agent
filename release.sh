@@ -52,7 +52,7 @@ for filepath in `ls package/*.tar.gz`; do
 done
 AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key install.sh --body scripts/install.sh --acl public-read
 AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key staging-install.sh --body scripts/staging-install.sh --acl public-read
-./deploy.sh $version
+# ./deploy.sh $version
 
 git tag v$version
 git push origin --tags
