@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"unicode"
 	"utils"
 )
@@ -49,6 +50,11 @@ func main() {
 	monitoredProcesses, err := configServiceClient.GetMonitoredProcesses()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot get the list of monitored processes. Error: %s\n", err)
+		os.Exit(1)
+	}
+
+	if len(monitoredProcesses) == 0 {
+		fmt.Fprintf(os.Stderr, "You don't have any process monitors setup. Aborting\n")
 		os.Exit(1)
 	}
 
@@ -101,11 +107,13 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Cannot write to temp file %s. Error: %s\n", file, err)
 			os.Exit(1)
 		}
-		cmd := exec.Command("diff", "-u", *output, file.Name())
+		cmd := exec.Command("diff", "--unidirectional-new-file", "-u", *output, file.Name())
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error generating diff. Error: %s\n", err)
+			if exit, ok := err.(*exec.ExitError); ok && exit.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() != 1 {
+				fmt.Fprintf(os.Stderr, "Error generating diff. Error: %s\n", err)
+			}
 		}
 
 		fmt.Printf("Do you want to continue ? [y/N] ")
