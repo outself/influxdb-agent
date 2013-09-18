@@ -144,8 +144,10 @@ func (self *Agent) watchLogFile() {
 			log.Info("Removing log watcher for %s", path)
 			watcher.RemoveWatch(path)
 		}
-
-		time.Sleep(self.config.Sleep)
+		select {
+		case <-time.After(self.config.Sleep):
+		case <-self.detector.forceLogConfigUpdate:
+		}
 	}
 
 	done := make(chan bool)

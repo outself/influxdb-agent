@@ -66,11 +66,12 @@ type AnomaliesDetector struct {
 	configClient             *utils.ConfigServiceClient
 	reporter                 Reporter
 	forceMonitorConfigUpdate chan int
+	forceLogConfigUpdate     chan bool
 	timeSeriesDatastore      *datastore.TimeseriesDatastore
 }
 
 func NewAnomaliesDetector(agentConfig *utils.Config, configClient *utils.ConfigServiceClient, reporter Reporter, timeSeriesDatastore *datastore.TimeseriesDatastore) *AnomaliesDetector {
-	detector := &AnomaliesDetector{nil, agentConfig, configClient, reporter, make(chan int, 1), timeSeriesDatastore}
+	detector := &AnomaliesDetector{nil, agentConfig, configClient, reporter, make(chan int), make(chan bool), timeSeriesDatastore}
 	return detector
 }
 
@@ -80,6 +81,7 @@ func (self *AnomaliesDetector) Start() {
 
 func (self *AnomaliesDetector) ForceMonitorConfigUpdate() {
 	self.forceMonitorConfigUpdate <- 1
+	self.forceLogConfigUpdate <- true
 }
 
 func (self *AnomaliesDetector) updateMonitorConfig() {
