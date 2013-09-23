@@ -160,6 +160,31 @@ func (self *DatastoreSuite) TestSnapshotIdUniqueness(c *C) {
 	c.Assert(*snapshot1.Id, Not(Equals), *snapshot2.Id)
 }
 
+func (self *DatastoreSuite) TestDeletingOldSnapshots(c *C) {
+	timeseriesDb, err := NewTimeseriesDatastore(self.dbDir)
+	c.Assert(err, IsNil)
+
+	database := "app4you2loveproduction"
+	db, err := NewSnapshotDatastore(self.dbDir, database, timeseriesDb)
+	c.Assert(err, IsNil)
+	c.Assert(db, NotNil)
+
+	db.SnapshotsLimit = 1
+
+	start := time.Now().Add(-1 * time.Hour).Unix()
+	firstSnapshot, err := db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: start}})
+	c.Assert(err, IsNil)
+
+	time.Sleep(1 * time.Second)
+
+	_, err = db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: start}})
+	c.Assert(err, IsNil)
+
+	snapshot, err := db.GetSnapshot(*firstSnapshot.Id)
+	c.Assert(err, IsNil)
+	c.Assert(snapshot, IsNil)
+}
+
 func (self *DatastoreSuite) TestBenchmarkSnapshotTaking(c *C) {
 	timeseriesDb, err := NewTimeseriesDatastore(self.dbDir)
 	c.Assert(err, IsNil)

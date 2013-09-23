@@ -16,6 +16,7 @@ type SnapshotDatastore struct {
 	CommonDatastore
 	database            string
 	timeseriesDatastore *TimeseriesDatastore
+	SnapshotsLimit      int
 }
 
 type SnapshotRequest struct {
@@ -39,6 +40,7 @@ func NewSnapshotDatastore(dir string, database string, timeseriesDatastore *Time
 		datastore.Close()
 		return nil, utils.WrapInErrplaneError(err)
 	}
+	datastore.SnapshotsLimit = 100
 	return datastore, nil
 }
 
@@ -58,6 +60,39 @@ func (self *SnapshotDatastore) GetSnapshot(id string) (*protocol.Snapshot, error
 		return nil, err
 	}
 	return snapshot, nil
+}
+
+func (self *SnapshotDatastore) RemoveOldSnapshots() error {
+	itr := self.db.NewIterator(self.readOptions)
+	defer itr.Close()
+	itr.SeekToFirst()
+
+	oldestId := []byte{}
+	oldestTimeStamp := time.Now().Unix()
+	count := 0
+
+	for ; itr.Valid(); itr.Next() {
+		key := itr.Key()
+		if value := itr.Value(); len(value) > 0 {
+			count++
+			snapshot := &protocol.Snapshot{}
+			err := proto.Unmarshal(value, snapshot)
+			if err != nil {
+				return err
+			}
+			if *snapshot.CreationTime < oldestTimeStamp {
+				oldestTimeStamp = *snapshot.CreationTime
+				oldestId = key
+			}
+		}
+	}
+
+	if count > self.SnapshotsLimit {
+		if err := self.db.Delete(self.writeOptions, oldestId); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (self *SnapshotDatastore) TakeSnapshot(snapshotRequests []*SnapshotRequest) (*protocol.Snapshot, error) {
@@ -133,5 +168,5 @@ func (self *SnapshotDatastore) SetSnapshot(snapshot *protocol.Snapshot) error {
 		return err
 	}
 
-	return nil
+	return self.RemoveOldSnapshots()
 }
