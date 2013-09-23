@@ -10,6 +10,8 @@ import (
 	"utils"
 )
 
+var GLOBAL_CACHE = levigo.NewLRUCache(10 * MEGABYTES)
+
 type CommonDatastore struct {
 	day            string
 	db             *levigo.DB
@@ -18,7 +20,6 @@ type CommonDatastore struct {
 	readOptions    *levigo.ReadOptions
 	readLock       sync.Mutex
 	sequenceNumber uint32
-	cache          *levigo.Cache
 }
 
 func (self *CommonDatastore) nextSequenceNumber() uint32 {
@@ -62,16 +63,13 @@ func (self *CommonDatastore) openLevelDb(day string, createIfMissing bool) (*lev
 		return nil, err
 	}
 	opts := levigo.NewOptions()
-	if self.cache == nil {
-		self.cache = levigo.NewLRUCache(10 * MEGABYTES)
-	}
 	if self.readOptions == nil {
 		self.readOptions = levigo.NewReadOptions()
 	}
 	if self.writeOptions == nil {
 		self.writeOptions = levigo.NewWriteOptions()
 	}
-	opts.SetCache(self.cache)
+	opts.SetCache(GLOBAL_CACHE)
 	opts.SetCreateIfMissing(createIfMissing)
 	opts.SetBlockSize(256 * KILOBYTES)
 	db, err := levigo.Open(dir, opts)
@@ -107,7 +105,6 @@ func (self *CommonDatastore) Close() {
 
 	self.writeOptions.Close()
 	self.readOptions.Close()
-	self.cache.Close()
 	if self.db != nil {
 		self.db.Close()
 	}
