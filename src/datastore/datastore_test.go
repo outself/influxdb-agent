@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"os"
+	"os/exec"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -156,6 +158,52 @@ func (self *DatastoreSuite) TestSnapshotIdUniqueness(c *C) {
 	c.Assert(err, IsNil)
 	fmt.Printf("snapshot1.Id = %s, snapshot2.Id = %s\n", *snapshot1.Id, *snapshot2.Id)
 	c.Assert(*snapshot1.Id, Not(Equals), *snapshot2.Id)
+}
+
+func (self *DatastoreSuite) TestBenchmarkSnapshotTaking(c *C) {
+	timeseriesDb, err := NewTimeseriesDatastore(self.dbDir)
+	c.Assert(err, IsNil)
+
+	start := time.Now().Add(-1 * time.Hour)
+	// write an hour worth of points for 100 metrics
+	for i := 0; i < 100; i++ {
+		points := []*Point{}
+		for j := 0; j < 60*10; j++ {
+			t := start.Add(time.Duration(j) * time.Second).Unix()
+			v := 1.0
+			var seq uint32 = 0
+			points = append(points, &Point{
+				Time:           &t,
+				Value:          &v,
+				SequenceNumber: &seq,
+				Context:        nil,
+				Dimensions:     nil,
+			})
+		}
+		err = timeseriesDb.WritePoints("app4you2loveproduction", fmt.Sprintf("timeseries%d", i), points)
+		c.Assert(err, IsNil)
+	}
+
+	database := "app4you2loveproduction"
+	db, err := NewSnapshotDatastore(self.dbDir, database, timeseriesDb)
+	c.Assert(err, IsNil)
+	c.Assert(db, NotNil)
+
+	for i := 0; i < 10; i++ {
+		snapshot, err := db.TakeSnapshot([]*SnapshotRequest{&SnapshotRequest{Regex: ".*", StartTime: start.Unix()}})
+		c.Assert(err, IsNil)
+		c.Assert(snapshot.Series, HasLen, 100)
+		c.Assert(snapshot.Series[0].Points, HasLen, 60*10)
+	}
+
+	path := path.Join(self.dbDir, "snapshots")
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("du -sch %s | grep total", path))
+	output, err := cmd.Output()
+	c.Assert(err, IsNil)
+	_size := strings.Fields(string(output))[0]
+	// size, err := strconv.Atoi(_size)
+	// c.Assert(err, IsNil)
+	fmt.Printf("size of %s is %s\n", path, _size)
 }
 
 func (self *DatastoreSuite) TestSnapshotTaking(c *C) {
