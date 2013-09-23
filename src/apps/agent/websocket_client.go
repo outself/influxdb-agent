@@ -144,16 +144,16 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 		params.StartTime = *request.StartTime
 	}
 
-	fiveHoursAgo := float64(time.Now().Add(-5 * time.Hour).Unix())
-	st := float64(params.StartTime)
-	params.StartTime = int64(math.Max(fiveHoursAgo, st))
-
 	if request.EndTime != nil {
 		params.EndTime = *request.EndTime
 	}
 	if request.Limit != nil {
 		defaultLimit = *request.Limit
 	}
+
+	fiveHoursAgo := float64(params.EndTime - (5 * 60 * 60))
+	st := float64(params.StartTime)
+	params.StartTime = int64(math.Max(fiveHoursAgo, st))
 
 	metrics := map[string]bool{}
 	for _, n := range request.MetricNames {
