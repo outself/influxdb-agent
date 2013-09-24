@@ -19,6 +19,7 @@ func (self *Agent) autoUpdate() {
 			continue
 		}
 		if newVersion == self.config.Version {
+			log.Debug("Same version, sleeping")
 			continue
 		}
 
