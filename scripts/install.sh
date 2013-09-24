@@ -46,25 +46,26 @@ cp -r anomalous-agent $anomalous_dir/versions/$version
 
 # create some symlinks
 ln -sfn $anomalous_dir/versions/$version                $anomalous_dir/current
-ln -sfn $anomalous_dir/current/agent                    /usr/bin/anomalous-agent
-# ln -sfn $anomalous_dir/current/agent_ctl                /usr/bin/anomalous-agent_ctl
-ln -sfn $anomalous_dir/current/anomalous-agent-daemon   /usr/bin/anomalous-agent-daemon
-ln -sfn $anomalous_dir/current/config-generator         /usr/bin/anomalous-config-generator
-ln -sfn $anomalous_dir/current/sudoers-generator        /usr/bin/anomalous-sudoers-generator
 ln -sfn $anomalous_dir/shared/log.txt                   $anomalous_dir/current/log.txt
-ln -sfn $anomalous_dir/current/init.d.sh                /etc/init.d/anomalous-agent
+# ln -sfn $anomalous_dir/current/agent_ctl                /usr/bin/anomalous-agent_ctl
+[ -L /usr/bin/anomalous-agent ]                 || ln -sfn $anomalous_dir/current/agent                  /usr/bin/anomalous-agent
+[ -L /usr/bin/anomalous-agent-daemon ]          || ln -sfn $anomalous_dir/current/anomalous-agent-daemon /usr/bin/anomalous-agent-daemon
+[ -L /usr/bin/anomalous-config-generator ]      || ln -sfn $anomalous_dir/current/config-generator       /usr/bin/anomalous-config-generator
+[ -L /usr/bin/anomalous-sudoers-generator ]     || ln -sfn $anomalous_dir/current/sudoers-generator      /usr/bin/anomalous-sudoers-generator
+if [ ! -L /etc/init.d/anomalous-agent ]; then
+    ln -sfn $anomalous_dir/current/init.d.sh /etc/init.d/anomalous-agent
+    if which update-rc.d > /dev/null 2>&1 ; then
+        update-rc.d -f anomalous-agent remove
+        update-rc.d anomalous-agent defaults
+    else
+        chkconfig --add anomalous-agent
+    fi
+fi
 
 # make sure the files are owned by the right user
 chown anomalous:anomalous -R $anomalous_dir
 chown anomalous:anomalous -R `dirname $anomalous_conf`
 chown anomalous:anomalous -R /usr/bin/anomalous-agent
-
-if which update-rc.d > /dev/null 2>&1 ; then
-    update-rc.d -f anomalous-agent remove
-    update-rc.d anomalous-agent defaults
-else
-    chkconfig --add anomalous-agent
-fi
 
 [ -e $anomalous_conf ] || sudo -u anomalous anomalous-config-generator -api-key $api_key -app-key $app_key
 popd
