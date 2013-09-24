@@ -75,5 +75,5 @@ chown anomalous:anomalous -R /usr/bin/anomalous-agent
 [ -e $anomalous_conf ] || sudo -u anomalous anomalous-config-generator -api-key $api_key -app-key $app_key
 popd
 
-# finally restart the agent
-service anomalous-agent restart
+# finally restart the agent or return 10 to force the agent to restart
+service anomalous-agent restart || exit 10

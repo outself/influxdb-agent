@@ -3,7 +3,9 @@ package main
 import (
 	log "code.google.com/p/log4go"
 	"fmt"
+	"os"
 	"os/exec"
+	"syscall"
 	"time"
 )
 
@@ -23,12 +25,27 @@ func (self *Agent) autoUpdate() {
 		// if a newer is available install the new version, (run the curl command)
 		log.Info("Updating from version %s to version %s", self.config.Version, newVersion)
 
-		cmdString := fmt.Sprintf("sh", "-c", "curl https://getanomalous.com/install.sh | bash -s %s %s %s",
+		cmdString := fmt.Sprintf("curl https://getanomalous.com/install.sh | bash -s %s %s %s",
 			self.config.AppKey, self.config.ApiKey, newVersion)
-		cmd := exec.Command(cmdString)
+		log.Debug("Running %s", cmdString)
+		cmd := exec.Command("sh", "-c", cmdString)
 		err = cmd.Run()
+
+		exitError, ok := err.(*exec.ExitError)
+		if !ok {
+			log.Error("Failed to update the agent. Error: %s", err)
+			continue
+		}
+
+		if exitError.ProcessState.Sys().(*syscall.WaitStatus).ExitStatus() != 10 {
+			log.Error("Failed to update the agent. Error: %s", err)
+			continue
+		}
+
+		// otherwise do an exec
+		err = syscall.Exec(os.Args[0], os.Args[1:], os.Environ())
 		if err != nil {
-			log.Error("Failed to update the agent")
+			log.Error("Failed to restart the agent. Error: %s", err)
 		}
 	}
 }
