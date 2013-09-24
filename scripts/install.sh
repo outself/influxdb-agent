@@ -18,6 +18,10 @@ if [ $# -ge 3 ]; then
     version=$3
 fi
 
+if [ $# -ge 4 ]; then
+    restart=$4
+fi
+
 echo "Using app_key: $app_key and api_key: $api_key"
 
 file=anomalous-agent_${version}_amd64.tar.gz
@@ -76,4 +80,7 @@ chown anomalous:anomalous -R /usr/bin/anomalous-agent
 popd
 
 # finally restart the agent or return 10 to force the agent to restart
-service anomalous-agent restart || exit 10
+if [ "x$restart" == "xoff" ]; then
+    exit 10
+fi
+service anomalous-agent restart
