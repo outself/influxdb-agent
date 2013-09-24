@@ -29,16 +29,10 @@ func (self *Agent) autoUpdate() {
 			self.config.AppKey, self.config.ApiKey, newVersion)
 		log.Debug("Running %s", cmdString)
 		cmd := exec.Command("sh", "-c", cmdString)
-		err = cmd.Run()
+		output, err := cmd.CombinedOutput()
 
-		exitError, ok := err.(*exec.ExitError)
-		if !ok {
-			log.Error("Failed to update the agent. Error: %s", err)
-			continue
-		}
-
-		if exitError.ProcessState.Sys().(*syscall.WaitStatus).ExitStatus() != 10 {
-			log.Error("Failed to update the agent. Error: %s", err)
+		if err != nil {
+			log.Error("Failed to update the agent. Output: %s, Error: %s", output, err)
 			continue
 		}
 
