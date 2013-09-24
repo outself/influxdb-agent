@@ -38,7 +38,7 @@ func (self *Agent) autoUpdate() {
 		}
 
 		// otherwise do an exec
-		err = syscall.Exec(os.Args[0], os.Args[1:], os.Environ())
+		err = syscall.Exec(os.Args[0], nil, os.Environ())
 		if err != nil {
 			log.Error("Failed to restart the agent. Error: %s", err)
 		}
