@@ -167,6 +167,19 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 	return nil
 }
 
+func (self *TimeseriesDatastore) ReadLastPoint(database, metricName string) (*Point, error) {
+	now := time.Now()
+	startTime := now.Add(-1 * time.Hour).Unix()
+	params := &GetParams{StartTime: startTime, EndTime: now.Unix(), Limit: int64(1), TimeSeries: metricName, Database: database}
+	var point *Point
+	cb := func(p *Point) error {
+		point = p
+		return nil
+	}
+	err := self.ReadSeries(params, cb)
+	return point, err
+}
+
 func (self *TimeseriesDatastore) ReadSeries(params *GetParams, yield func(*Point) error) error {
 	self.readLock.Lock()
 	defer self.readLock.Unlock()

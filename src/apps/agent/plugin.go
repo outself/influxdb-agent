@@ -44,6 +44,8 @@ func (p *PluginStateOutput) String() string {
 		return "critical"
 	case UNKNOWN:
 		return "unknown"
+	case NOT_PROPERLY_CONFIGURED:
+		return "not_properly_configured"
 	default:
 		panic(fmt.Errorf("WTF unknown state %d", *p))
 	}
@@ -54,6 +56,7 @@ const (
 	WARNING
 	CRITICAL
 	UNKNOWN
+	NOT_PROPERLY_CONFIGURED
 )
 
 var (
@@ -171,6 +174,18 @@ func (self *Agent) runPlugin(instance *agent.PluginInstance, plugin *utils.Plugi
 		}
 
 		metricSuffix := fmt.Sprintf("%s.plugins.%s.", self.config.Hostname, plugin.Name)
+		// if the plugin is not ok, it's possible that it's in a NOT_PROPERLY_CONFIGURED state, check the last status to know
+		if output.state != OK {
+			point, err := self.timeseriesDatastore.ReadLastPoint(self.config.Database(), metricSuffix+"status")
+			if point == nil || err != nil {
+				output.state = NOT_PROPERLY_CONFIGURED
+			} else {
+				notProperlyConfigured := NOT_PROPERLY_CONFIGURED
+				if point.GetContext() == notProperlyConfigured.String() {
+					output.state = NOT_PROPERLY_CONFIGURED
+				}
+			}
+		}
 		self.Report(metricSuffix+"status", 1.0, time.Now(), output.state.String(), dimensions)
 
 		// create a map from metric name to current value
