@@ -6,17 +6,21 @@
 # exit on errors
 set -e
 
-if [ $# -ne 2 ]; then
-    echo "usage: $0 <app_key> <api_key>"
+if [ $# -lt 2 ]; then
+    echo "usage: $0 <app_key> <api_key> [version]"
     exit 1
 fi
 
 app_key=$1
 api_key=$2
+version=latest
+if [ $# -ge 3 ]; then
+    version=$3
+fi
 
 echo "Using app_key: $app_key and api_key: $api_key"
 
-file=anomalous-agent_latest_amd64.tar.gz
+file=anomalous-agent_${version}_amd64.tar.gz
 anomalous_dir=/data/anomalous-agent
 anomalous_conf=/etc/anomalous-agent/config.yml
 link=https://s3.amazonaws.com/errplane-agent/$file
