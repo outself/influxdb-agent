@@ -1,6 +1,7 @@
 package utils
 
 import (
+	log "code.google.com/p/log4go"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
@@ -40,8 +41,10 @@ type Config struct {
 	UdpAddr          string        `yaml:"udp-addr"`
 
 	// plugins directories
-	PluginsDir       string `yaml:"plugins-dir"`
-	CustomPluginsDir string `yaml:"custom-plugins-dir"`
+	PluginsDir        string `yaml:"plugins-dir"`
+	CustomPluginsDir  string `yaml:"custom-plugins-dir"`
+	Version           string `yaml:"-"`
+	AutoUpdateEnabled bool   `yaml:"enable-auto-update"`
 }
 
 func (self *Config) Database() string {
@@ -92,6 +95,17 @@ func ParseConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, WrapInErrplaneError(err)
 	}
+
+	version, err := ioutil.ReadFile("/data/anomalous-agent/current/version")
+	if err != nil {
+		return nil, err
+	}
+	config.Version = string(version)
+
+	if !config.AutoUpdateEnabled {
+		log.Info("Auto update is disabled")
+	}
+
 	// for _, process := range config.MonitoredProcesses {
 	// 	process.CompiledRegex, err = regexp.Compile(process.Regex)
 	// 	if err != nil {

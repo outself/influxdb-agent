@@ -124,6 +124,16 @@ func (self *ConfigServiceClient) InstallPlugin(version string) {
 	}
 }
 
+func (self *ConfigServiceClient) GetAgentVersion() (string, error) {
+	database := self.config.Database()
+	url := self.configServerUrl("/v2/databases/%s/agent-version?api_key=%s", database, self.config.ApiKey)
+	version, err := GetBody(url)
+	if err != nil {
+		return "", err
+	}
+	return string(version), nil
+}
+
 func (self *ConfigServiceClient) GetCurrentPluginsVersion() (string, error) {
 	database := self.config.Database()
 	url := self.configServerUrl("/databases/%s/plugins/current_version", database)
