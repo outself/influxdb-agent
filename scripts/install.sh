@@ -81,6 +81,6 @@ popd
 
 # finally restart the agent or return 10 to force the agent to restart
 if [ "x$restart" == "xoff" ]; then
-    exit 10
+    exit 0
 fi
 service anomalous-agent restart
