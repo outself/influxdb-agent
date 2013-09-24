@@ -72,7 +72,7 @@ plugins-dir: %s
 custom-plugins-dir: %s
 
 # agent auto update
-auto-update-enabled: true
+enable-auto-update: true
 `
 
 	content := fmt.Sprintf(sample, *httpHost, *apiKey, *appKey, *env, *configHost, *ws, *pluginsDir, *customPluginsDir)
