@@ -34,6 +34,7 @@ pushd $TEMPDIR
 echo "Downloading package from $link"
 rm -f $file
 wget $link >/dev/null
+trap "rm $file" EXIT
 tar -xvzf $file >/dev/null
 version=`cat anomalous-agent/version`
 [ ! -d $anomalous_dir ] && mkdir -p $anomalous_dir
