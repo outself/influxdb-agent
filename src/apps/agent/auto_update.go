@@ -26,7 +26,7 @@ func (self *Agent) autoUpdate() {
 		// if a newer is available install the new version, (run the curl command)
 		log.Info("Updating from version %s to version %s", self.config.Version, newVersion)
 
-		cmdString := fmt.Sprintf("curl https://getanomalous.com/install.sh | bash -s %s %s %s",
+		cmdString := fmt.Sprintf("curl https://getanomalous.com/install.sh | bash -s %s %s %s off",
 			self.config.AppKey, self.config.ApiKey, newVersion)
 		log.Debug("Running %s", cmdString)
 		cmd := exec.Command("sh", "-c", cmdString)
