@@ -122,7 +122,7 @@ func (self *Agent) start() error {
 	self.websocketClient = NewWebsocketClient(self.config, self.detector, self.timeseriesDatastore, self.snapshotDatastore)
 	self.websocketClient.Start()
 	go self.watchLogFile()
-	log.Info("Agent started successfully")
+	log.Info("Agent %s started successfully", self.config.Version)
 
 	// TODO: handle a shutdown
 	for {
