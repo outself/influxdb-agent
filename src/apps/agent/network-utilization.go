@@ -25,8 +25,11 @@ func (self *NetworkUtilization) Get() error {
 	if err != nil {
 		return err
 	}
+	return self.Parse(statFile)
+}
 
-	lines := strings.Split(string(statFile), "\n")
+func (self *NetworkUtilization) Parse(data []byte) error {
+	lines := strings.Split(string(data), "\n")
 	if len(lines) <= 2 {
 		return fmt.Errorf("/proc/net/dev doesn't have the expected format")
 	}
@@ -35,12 +38,19 @@ func (self *NetworkUtilization) Get() error {
 		if len(strings.TrimSpace(line)) == 0 {
 			continue
 		}
-		fields := strings.Fields(line)
+
+		colonSeparatedFields := strings.Split(line, ":")
+		if len(colonSeparatedFields) != 2 {
+			return fmt.Errorf("Expected two fields separated by colon in %s, but found %d", line, len(colonSeparatedFields))
+		}
+
+		name := strings.TrimSpace(colonSeparatedFields[0])
+		fields := strings.Fields(colonSeparatedFields[1])
 		if len(fields) < 16 {
 			return fmt.Errorf("/proc/net/dev doesn't have the expected format. Expected 16 fields found %d", len(fields))
 		}
-		name := strings.Trim(fields[0], ":")
 		utilization := &DeviceNetworkUtilization{}
+		var err error
 		if utilization.rxBytes, err = strconv.ParseInt(fields[1], 10, 64); err != nil {
 			return err
 		}
