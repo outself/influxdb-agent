@@ -24,7 +24,12 @@ fi
 
 echo "Using app_key: $app_key and api_key: $api_key"
 
-file=anomalous-agent_${version}_amd64.tar.gz
+case `uname -p` in
+    i686)   name=386;;
+    x86_64) name=amd64;;
+esac
+
+file=anomalous-agent_${version}_${name}.tar.gz
 anomalous_dir=/data/anomalous-agent
 anomalous_conf=/etc/anomalous-agent/config.yml
 link=https://s3.amazonaws.com/errplane-agent/$file
