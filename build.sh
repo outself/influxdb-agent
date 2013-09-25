@@ -13,7 +13,6 @@ if [ "$UPDATE" = "on" ]; then
     build_args="-u"
 fi
 
-snappy_dir=/tmp/snappy
 snappy_file=snappy-$snappy_version.tar.gz
 if [ ! -d $snappy_dir -o ! -e $snappy_dir/$snappy_file -o ! -e $snappy_dir/.libs/libsnappy.a ]; then
     rm -rf $snappy_dir
@@ -28,7 +27,6 @@ if [ ! -d $snappy_dir -o ! -e $snappy_dir/$snappy_file -o ! -e $snappy_dir/.libs
     popd
 fi
 
-leveldb_dir=/tmp/leveldb
 leveldb_file=leveldb-$leveldb_version.tar.gz
 if [ ! -d $leveldb_dir -o ! -e $leveldb_dir/$leveldb_file -o ! -e $leveldb_dir/libleveldb.a ]; then
     rm -rf $leveldb_dir
@@ -49,9 +47,6 @@ git submodule update --init
 pushd src/github.com/jmhodges/levigo/
 find . -name \*.go | xargs sed -i 's/\/\/ #cgo LDFLAGS: -lleveldb\|#cgo LDFLAGS: -lleveldb//g'
 popd
-
-export CGO_CFLAGS="-I$leveldb_dir/include"
-export CGO_LDFLAGS="$leveldb_dir/libleveldb.a $snappy_dir/.libs/libsnappy.a -lstdc++"
 
 go get $build_args github.com/errplane/errplane-go \
     github.com/errplane/gosigar \
