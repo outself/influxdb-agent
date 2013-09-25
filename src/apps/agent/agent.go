@@ -450,7 +450,7 @@ func (self *Agent) networkStats(ch chan error) {
 		if !skipFirst {
 			elapsedSeconds := timestamp.Sub(prevTimestamp).Seconds()
 			for name, utilization := range network {
-				if utilization.rxBytes-prevNetwork[name] == nil {
+				if prevNetwork[name] == nil {
 					continue
 				}
 
