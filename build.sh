@@ -13,30 +13,39 @@ if [ "$UPDATE" = "on" ]; then
     build_args="-u"
 fi
 
-snappy_file=snappy-$snappy_version.tar.gz
-if [ ! -d $snappy_dir -o ! -e $snappy_dir/$snappy_file -o ! -e $snappy_dir/.libs/libsnappy.a ]; then
+patch="off"
+cflags="-m32"
+arch=80386
+if [ "x$GOARCH" != "x386" ]; then
+    arch=x86-64
+    cflags=
+    patch=on
+fi
+
+echo "Building for architecutre $arch"
+file $snappy_dir/.libs/libsnappy.so* | grep $arch >/dev/null 2>&1
+if [ ! -d $snappy_dir -o ! -e $snappy_dir/.libs/libsnappy.a -o $? -ne 0 ]; then
+    snappy_file=snappy-$snappy_version.tar.gz
     rm -rf $snappy_dir
     mkdir -p $snappy_dir
     pushd $snappy_dir
     wget https://snappy.googlecode.com/files/$snappy_file
     tar --strip-components=1 -xvzf $snappy_file
-    # apply the path to use the old memcpy and avoid any references to the GLIBC_2.14
-    patch -p1 < $snappy_patch || (echo "Cannot patch this version of snappy" && exit 1)
-    ./configure
+    # apply the path to use the old memcpy and avoid any references to the GLIBC_2.14 only if building the x64
+    [ $patch == on ] && patch -p1 < $snappy_patch || (echo "Cannot patch this version of snappy" && exit 1)
+    CFLAGS=$cflags CXXFLAGS=$cflags ./configure
     make
     popd
-fi
 
-leveldb_file=leveldb-$leveldb_version.tar.gz
-if [ ! -d $leveldb_dir -o ! -e $leveldb_dir/$leveldb_file -o ! -e $leveldb_dir/libleveldb.a ]; then
+    leveldb_file=leveldb-$leveldb_version.tar.gz
     rm -rf $leveldb_dir
     mkdir -p $leveldb_dir
     pushd $leveldb_dir
     wget https://leveldb.googlecode.com/files/$leveldb_file
     tar --strip-components=1 -xvzf $leveldb_file
-    # apply the path to use the old memcpy and avoid any references to the GLIBC_2.14
-    patch -p1 < $leveldb_patch || (echo "Cannot patch this version of leveldb" && exit 1)
-    CXXFLAGS="-I/tmp/snappy" LDFLAGS="-L/tmp/snappy/.libs" make
+    # apply the path to use the old memcpy and avoid any references to the GLIBC_2.14 only if building the x64
+    [ $patch == on ] && patch -p1 < $leveldb_patch || (echo "Cannot patch this version of leveldb" && exit 1)
+    CXXFLAGS="-I/tmp/snappy $cflags" LDFLAGS="-L/tmp/snappy/.libs" make
     popd
 fi
 

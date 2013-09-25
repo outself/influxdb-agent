@@ -30,3 +30,6 @@ cp ../scripts/anomalous-agent-daemon anomalous-agent/
 echo -n $version > anomalous-agent/version
 tar -cvzf anomalous-agent_${version}_${name}.tar.gz anomalous-agent
 popd
+
+# build the 32 bit version
+CGO_ENABLED=on GOARCH=386 UPDATE=on ./build.sh -v $version
