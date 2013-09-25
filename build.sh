@@ -51,7 +51,7 @@ find . -name \*.go | xargs sed -i 's/\/\/ #cgo LDFLAGS: -lleveldb\|#cgo LDFLAGS:
 popd
 
 export CGO_CFLAGS="-I$leveldb_dir/include"
-export CGO_LDFLAGS="-v $leveldb_dir/libleveldb.a $snappy_dir/.libs/libsnappy.a -lstdc++"
+export CGO_LDFLAGS="$leveldb_dir/libleveldb.a $snappy_dir/.libs/libsnappy.a -lstdc++"
 
 go get $build_args github.com/errplane/errplane-go \
     github.com/errplane/gosigar \
