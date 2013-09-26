@@ -57,4 +57,4 @@ AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key stagi
 branch=`git rev-parse --abbrev-ref HEAD`
 git tag v$version
 git push origin --tags
-git push origin $branch
+git push origin || exit 0
