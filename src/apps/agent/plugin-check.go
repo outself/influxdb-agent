@@ -20,7 +20,7 @@ func (self *Agent) getExistingLogFiles() ([]string, error) {
 
 	logFiles := []string{}
 	for _, monitor := range monitoringConfig.Monitors {
-		if monitor.LogName == "" {
+		if monitor.LogName == "" || monitor.Disabled {
 			continue
 		}
 		logFiles = append(logFiles, monitor.LogName)
