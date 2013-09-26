@@ -118,9 +118,6 @@ func (self *Agent) watchLogFile() {
 
 		// add new watchers
 		for path, _ := range newPaths {
-			if _, ok := logFiles[path]; ok {
-				continue
-			}
 			log.Debug("Adding log watcher for %s", path)
 			err = watcher.Watch(path)
 			if err != nil {

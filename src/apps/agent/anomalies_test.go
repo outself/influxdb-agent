@@ -136,27 +136,32 @@ func (self *LogMonitoringSuite) SetUpTest(c *C) {
 }
 
 func (self *LogMonitoringSuite) TestLogStorage(c *C) {
-	time.Sleep(1 * time.Second)
+	for i := 0; i < 2; i++ {
+		err := os.Remove(self.tempFile)
+		c.Assert(err, IsNil)
+		file, err := os.Create(self.tempFile)
+		c.Assert(err, IsNil)
+		time.Sleep(1 * time.Second)
+		content := "INFO: testing\n"
+		fmt.Fprint(file, content)
+		file.Close()
 
-	file, err := os.OpenFile(self.tempFile, os.O_APPEND|os.O_RDWR, 0644)
-	c.Assert(err, IsNil)
-	content := "INFO: testing\n"
-	fmt.Fprint(file, content)
-	file.Close()
+		time.Sleep(1 * time.Second)
 
-	time.Sleep(1 * time.Second)
-
-	points := []*agent.Point{}
-	params := &datastore.GetParams{
-		TimeSeries: fmt.Sprintf(".logs.%s", self.tempFile),
-		StartTime:  time.Now().Add(-1 * time.Hour).Unix(),
+		points := []*agent.Point{}
+		params := &datastore.GetParams{
+			TimeSeries: fmt.Sprintf(".logs.%s", self.tempFile),
+			StartTime:  time.Now().Add(-1 * time.Hour).Unix(),
+		}
+		self.agent.timeseriesDatastore.ReadSeries(params, func(p *agent.Point) error {
+			points = append(points, p)
+			return nil
+		})
+		c.Assert(points, HasLen, i+1)
+		for j := 0; j < i+1; j++ {
+			c.Assert(*points[j].Context, Equals, content)
+		}
 	}
-	self.agent.timeseriesDatastore.ReadSeries(params, func(p *agent.Point) error {
-		points = append(points, p)
-		return nil
-	})
-	c.Assert(points, HasLen, 1)
-	c.Assert(*points[0].Context, Equals, content)
 }
 
 func (self *LogMonitoringSuite) TestLogMonitoringWithSingleMatches(c *C) {
