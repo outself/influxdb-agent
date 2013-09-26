@@ -30,6 +30,8 @@ if [ "x$regex" != "x" ]; then
     gocheck_args="-gocheck.f $regex"
 fi
 
+./build.sh
+
 go test -v apps/agent $gocheck_args &&
 go test -v datastore $gocheck_args
 
