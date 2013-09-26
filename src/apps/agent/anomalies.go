@@ -206,6 +206,7 @@ func (self *AnomaliesDetector) reportPluginEvent(monitor *monitoring.Monitor, na
 					"alertOnMatch": condition.AlertOnMatch,
 					"onlyAfter":    condition.OnlyAfter.String(),
 					"host":         self.agentConfig.Hostname,
+					"status":       status,
 				})
 			}
 		}
