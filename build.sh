@@ -45,7 +45,7 @@ if [ ! -d $snappy_dir -o ! -e $snappy_dir/.libs/libsnappy.a -o $? -ne 0 ]; then
     tar --strip-components=1 -xvzf $leveldb_file
     # apply the path to use the old memcpy and avoid any references to the GLIBC_2.14 only if building the x64
     [ $patch == on ] && patch -p1 < $leveldb_patch || (echo "Cannot patch this version of leveldb" && exit 1)
-    CXXFLAGS="-I/tmp/snappy $cflags" LDFLAGS="-L/tmp/snappy/.libs" make
+    CXXFLAGS="-I$snappy_dir $cflags" LDFLAGS="-L$snappy_dir/.libs" make
     popd
 fi
 
