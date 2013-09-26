@@ -54,6 +54,7 @@ AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key insta
 AWS_CONFIG_FILE=~/aws.conf aws s3 put-object --bucket errplane-agent --key staging-install.sh --body scripts/staging-install.sh --acl public-read
 # ./deploy.sh $version
 
+branch=`git rev-parse --abbrev-ref HEAD`
 git tag v$version
 git push origin --tags
-git push origin
+git push origin $branch
