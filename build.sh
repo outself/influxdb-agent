@@ -49,8 +49,6 @@ if [ ! -d $snappy_dir -o ! -e $snappy_dir/.libs/libsnappy.a -o $? -ne 0 ]; then
     popd
 fi
 
-stdcxx_location=`g++ -print-file-name=libstdc++.a`
-
 git submodule update --init
 
 pushd src/github.com/jmhodges/levigo/
