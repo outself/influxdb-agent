@@ -24,7 +24,7 @@ fi
 
 echo "Using app_key: $app_key and api_key: $api_key"
 
-case `uname -p` in
+case `uname -m` in
     i686)   name=386;;
     x86_64) name=amd64;;
 esac
