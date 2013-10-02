@@ -108,7 +108,7 @@ func (self *Agent) start() error {
 	go self.networkStats(ch)
 	go self.diskSpaceStats(ch)
 	go self.ioStats(ch)
-	go self.procStats(ch)
+	// go self.procStats(ch)
 	go self.monitorProceses(ch)
 	go self.monitorPlugins()
 	go self.checkNewPlugins()
