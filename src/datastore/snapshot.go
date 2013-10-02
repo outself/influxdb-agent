@@ -113,7 +113,7 @@ func (self *SnapshotDatastore) TakeSnapshot(snapshotRequests []*SnapshotRequest)
 			}
 		}
 	}
-	self.timeseriesDatastore.ReadSeriesIndex(self.database, 0, snapshotRequests[0].StartTime, foo)
+	self.timeseriesDatastore.ReadSeriesIndex(self.database, snapshotRequests[0].StartTime, foo)
 	uuid, err := uuid.NewV4()
 	if err != nil {
 		return nil, err

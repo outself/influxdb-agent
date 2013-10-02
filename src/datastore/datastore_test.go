@@ -36,6 +36,53 @@ func (self *DatastoreSuite) TearDownTest(c *C) {
 	}
 }
 
+func (self *DatastoreSuite) TestIndexOfOldPoints(c *C) {
+	db, err := NewTimeseriesDatastore(self.dbDir)
+	defer db.Close()
+	c.Assert(err, IsNil)
+
+	var sequence uint32 = 1
+
+	// write a point that is recent and
+	oldTimestamp := time.Now().Add(-2 * time.Hour).Unix()
+	now := time.Now().Unix()
+	value := 1.0
+
+	// make sure our timeseries is sorted last
+	err = db.WritePoints("dbname", "ZeOldTimeseries", []*Point{
+		&Point{
+			Time:           &now,
+			Value:          &value,
+			SequenceNumber: &sequence,
+		},
+	})
+	c.Assert(err, IsNil)
+
+	for i := 0; i < 5000; i++ {
+		timeseries := fmt.Sprintf("Timeseries%d", i)
+		err = db.WritePoints("dbname", timeseries, []*Point{
+			&Point{
+				Time:           &oldTimestamp,
+				Value:          &value,
+				SequenceNumber: &sequence,
+			},
+		})
+		c.Assert(err, IsNil)
+	}
+
+	// make sure the index is updated
+
+	stats := []string{}
+	yield := func(metricName string) {
+		if metricName == "ZeOldTimeseries" {
+			stats = append(stats, metricName)
+		}
+	}
+	db.ReadSeriesIndex("dbname", time.Now().Add(-1*time.Hour).Unix(), yield)
+	c.Assert(stats, HasLen, 1)
+	fmt.Printf("stats: %v\n", stats)
+}
+
 func (self *DatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
 	db, err := NewTimeseriesDatastore(self.dbDir)
 	defer db.Close()
@@ -58,7 +105,7 @@ func (self *DatastoreSuite) testDataRetrievalCommon(c *C, timestamps ...int64) {
 
 	// make sure the index is updated
 	metrics := map[string]bool{}
-	err = db.ReadSeriesIndex("dbname", 0, timestamps[0], func(m string) {
+	err = db.ReadSeriesIndex("dbname", timestamps[0], func(m string) {
 		metrics[m] = true
 	})
 	c.Assert(metrics, HasLen, 1)

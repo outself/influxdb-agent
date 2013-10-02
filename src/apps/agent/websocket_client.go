@@ -178,7 +178,7 @@ func (self *WebsocketClient) readMetrics(request *agent.Request) *agent.Response
 				}
 			}
 		}
-		self.timeSeriesDatastore.ReadSeriesIndex(params.Database, 1000, time.Now().Add(-1*time.Hour).Unix(), addNamesToLookup)
+		self.timeSeriesDatastore.ReadSeriesIndex(params.Database, time.Now().Add(-1*time.Hour).Unix(), addNamesToLookup)
 	}
 
 	// now look up the metrics

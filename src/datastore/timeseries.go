@@ -109,14 +109,11 @@ func (self *TimeseriesDatastore) updateIndex(database, timeseries string, timest
 	return nil
 }
 
-func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, startTime int64, yield func(string)) error {
+func (self *TimeseriesDatastore) ReadSeriesIndex(database string, startTime int64, yield func(string)) error {
 	self.readLock.Lock()
 	defer self.readLock.Unlock()
 
 	endTime := time.Now().Unix()
-	if limit <= 0 || limit > 100000 {
-		limit = 100000
-	}
 	for {
 		db, shouldClose, err := self.openDbOrUseTodays(endTime)
 		if db == nil || err != nil {
@@ -137,7 +134,7 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 
 		it.Seek([]byte(key))
 
-		for it = it; it.Valid() && limit > 0; it.Next() {
+		for it = it; it.Valid(); it.Next() {
 			indexKey := string(it.Key())
 			if !strings.HasPrefix(indexKey, beginningKey) {
 				break
@@ -150,14 +147,11 @@ func (self *TimeseriesDatastore) ReadSeriesIndex(database string, limit int64, s
 				if err := binary.Read(bytes.NewReader(_value), binary.LittleEndian, &value); err != nil {
 					return utils.WrapInErrplaneError(err)
 				}
-				if value > startTime {
-					yield(parts[2])
+				if value < startTime {
+					continue
 				}
+				yield(parts[2])
 			}
-			limit--
-		}
-		if limit == 0 {
-			break
 		}
 		endTime -= (24 * int64(time.Hour)) / int64(time.Second)
 		if endTime < startTime {
