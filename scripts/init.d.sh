@@ -1,3 +1,5 @@
+#! /usr/bin/env bash
+
 ### BEGIN INIT INFO
 # Provides:          anomalous-agent
 # Required-Start:    $all
@@ -7,8 +9,56 @@
 # Short-Description: Start anomalous agent at boot time
 ### END INIT INFO
 
+# this init script supports three different variations:
+#  1. New lsb that define start-stop-daemon
+#  2. Old lsb that don't have start-stop-daemon but define, log, pidofproc and killproc
+#  3. Centos installations without lsb-core installed
+#
+# In the third case we have to define our own functions which are very dumb
+# and expect the args to be positioned correctly.
+
 # Using the lsb functions to perform the operations.
-. /lib/lsb/init-functions
+if [ -e /lib/lsb/init-functions ]; then
+    source /lib/lsb/init-functions
+else
+    # define log_success_msg, log_failure_msg
+    function pidofproc() {
+        if [ $# -ne 3 ]; then
+            echo "Expected three arguments, e.g. $0 -p pidfile daemon-name"
+        fi
+
+        pid=`pgrep -f $3`
+        local pidfile=`cat $2`
+
+        if [ "x$pidfile" == "x" ]; then
+            return 1
+        fi
+
+        if [ "x$pid" != "x" -a "$pidfile" == "$pid" ]; then
+            return 0
+        fi
+
+        return 1
+    }
+
+    function killproc() {
+        if [ $# -ne 3 ]; then
+            echo "Expected three arguments, e.g. $0 -p pidfile signal"
+        fi
+
+        pid=`cat $2`
+
+        kill -s $3 $pid
+    }
+
+    function log_failure_msg() {
+        echo "$@" "[ FAILED ]"
+    }
+
+    function log_success_msg() {
+        echo "$@" "[ OK ]"
+    }
+fi
 
 # Process name ( For display )
 name=anomalous-agent
@@ -43,7 +93,7 @@ case $1 in
             status="0"
         else
             cd /
-            if start_daemon -u anomalous ${daemon}-daemon; then
+            if ${daemon}-daemon; then
                 status="0"
             fi
         fi
