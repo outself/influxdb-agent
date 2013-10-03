@@ -2,6 +2,8 @@
 
 . exports.sh
 
+set -e
+
 current_dir=$(readlink -f $(dirname $0))
 snappy_patch=$current_dir/leveldb-patches/0001-use-the-old-glibc-memcpy-snappy.patch
 leveldb_patch=$current_dir/leveldb-patches/0001-use-the-old-glibc-memcpy-leveldb.patch
@@ -23,8 +25,10 @@ if [ "x$GOARCH" != "x386" ]; then
 fi
 
 echo "Building for architecutre $arch"
-file $snappy_dir/.libs/libsnappy.so* | grep $arch >/dev/null 2>&1
-if [ ! -d $snappy_dir -o ! -e $snappy_dir/.libs/libsnappy.a -o $? -ne 0 ]; then
+if file $snappy_dir/.libs/libsnappy.so* | grep $arch >/dev/null 2>&1; then
+    architecture_match=0
+fi
+if [ ! -d $snappy_dir -o ! -e $snappy_dir/.libs/libsnappy.a -o "x$architecture_match" != "x0" ]; then
     snappy_file=snappy-$snappy_version.tar.gz
     rm -rf $snappy_dir
     mkdir -p $snappy_dir
@@ -32,7 +36,7 @@ if [ ! -d $snappy_dir -o ! -e $snappy_dir/.libs/libsnappy.a -o $? -ne 0 ]; then
     wget https://snappy.googlecode.com/files/$snappy_file
     tar --strip-components=1 -xvzf $snappy_file
     # apply the path to use the old memcpy and avoid any references to the GLIBC_2.14 only if building the x64
-    [ $patch == on ] && patch -p1 < $snappy_patch || (echo "Cannot patch this version of snappy" && exit 1)
+    [ $patch == on ] && (patch -p1 < $snappy_patch || (echo "Cannot patch this version of snappy" && exit 1))
     CFLAGS=$cflags CXXFLAGS=$cflags ./configure
     make
     popd
@@ -44,7 +48,7 @@ if [ ! -d $snappy_dir -o ! -e $snappy_dir/.libs/libsnappy.a -o $? -ne 0 ]; then
     wget https://leveldb.googlecode.com/files/$leveldb_file
     tar --strip-components=1 -xvzf $leveldb_file
     # apply the path to use the old memcpy and avoid any references to the GLIBC_2.14 only if building the x64
-    [ $patch == on ] && patch -p1 < $leveldb_patch || (echo "Cannot patch this version of leveldb" && exit 1)
+    [ $patch == on ] && (patch -p1 < $leveldb_patch || (echo "Cannot patch this version of leveldb" && exit 1))
     CXXFLAGS="-I$snappy_dir $cflags" LDFLAGS="-L$snappy_dir/.libs" make
     popd
 fi
