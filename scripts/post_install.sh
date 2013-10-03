@@ -36,9 +36,9 @@ if [ ! -L /etc/init.d/anomalous-agent ]; then
 fi
 
 # make sure the files are owned by the right user
-chown anomalous:anomalous -R $anomalous_dir
-chown anomalous:anomalous -R `dirname $anomalous_conf`
-chown anomalous:anomalous -R /usr/bin/anomalous-agent
+chown anomalous -R $anomalous_dir
+chown anomalous -R `dirname $anomalous_conf`
+chown anomalous -R /usr/bin/anomalous-agent
 
 [ ! -e $anomalous_conf -a "x$api_key" != "x" -a "x$app_key" != "x" ] && sudo -u anomalous anomalous-config-generator -api-key $api_key -app-key $app_key
 
