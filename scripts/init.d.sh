@@ -17,6 +17,10 @@
 # In the third case we have to define our own functions which are very dumb
 # and expect the args to be positioned correctly.
 
+if [ -e /lib/lsb/init-functions ]; then
+    source /lib/lsb/init-functions
+fi
+
 function pidofproc() {
     if [ $# -ne 3 ]; then
         echo "Expected three arguments, e.g. $0 -p pidfile daemon-name"
@@ -81,16 +85,15 @@ case $1 in
         log_success_msg "Starting the process" "$name"
         # Start the daemon with the help of start-stop-daemon
         # Log the message appropriately
-        status="1"
         cd /
-        if sudo -u anomalous -g anomalous ${daemon}-daemon; then
-            status="0"
-        fi
-        if [ "x$status" = "x0" ] ; then
-            log_success_msg "Anomalous agent started"
+        if which start-stop-daemon > /dev/null 2>&1; then
+            nohup start-stop-daemon -c anomalous:anomalous -d / --start --quiet --oknodo --pidfile $pidfile --exec $daemon > /dev/null 2>> /data/$name/shared/log.txt &
+        elif set | egrep '^start_daemon' > /dev/null 2>&1; then
+            start_daemon -u anomalous ${daemon}-daemon
         else
-            log_failure_msg "Could not start the agent"
+            sudo -u anomalous ${daemon}-daemon
         fi
+        log_success_msg "Anomalous agent started"
         ;;
     stop)
         # Stop the daemon.
