@@ -84,4 +84,4 @@ function build_packages {
 
 # bulid and package the x86_64 version
 UPDATE=on ./build.sh -v $version && package_files amd64 && build_packages amd64 && \
-    CGO_ENABLED=1 GOARCH=386 UPDATE=on ./build.sh -v $version && package_files 386
+    CGO_ENABLED=1 GOARCH=386 UPDATE=on ./build.sh -v $version && package_files 386 && build_packages 386
