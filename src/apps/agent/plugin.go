@@ -95,9 +95,6 @@ func (self *Agent) monitorPlugins() {
 
 		log.Debug("Iterating through %d plugins", len(plugins))
 
-		// get the list of plugins that should be turned from the config service
-		plugins = self.getAvailablePlugins()
-
 		for _, plugin := range plugins {
 			if disabledPlugins[plugin.Name] {
 				log.Debug("Ignoring plugin %s because the user disabled it", plugin)
