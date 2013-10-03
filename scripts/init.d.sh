@@ -17,48 +17,42 @@
 # In the third case we have to define our own functions which are very dumb
 # and expect the args to be positioned correctly.
 
-# Using the lsb functions to perform the operations.
-if [ -e /lib/lsb/init-functions ]; then
-    source /lib/lsb/init-functions
-else
-    # define log_success_msg, log_failure_msg
-    function pidofproc() {
-        if [ $# -ne 3 ]; then
-            echo "Expected three arguments, e.g. $0 -p pidfile daemon-name"
-        fi
+function pidofproc() {
+    if [ $# -ne 3 ]; then
+        echo "Expected three arguments, e.g. $0 -p pidfile daemon-name"
+    fi
 
-        pid=`pgrep -f $3`
-        local pidfile=`cat $2`
+    pid=`pgrep -f $3`
+    local pidfile=`cat $2`
 
-        if [ "x$pidfile" == "x" ]; then
-            return 1
-        fi
-
-        if [ "x$pid" != "x" -a "$pidfile" == "$pid" ]; then
-            return 0
-        fi
-
+    if [ "x$pidfile" == "x" ]; then
         return 1
-    }
+    fi
 
-    function killproc() {
-        if [ $# -ne 3 ]; then
-            echo "Expected three arguments, e.g. $0 -p pidfile signal"
-        fi
+    if [ "x$pid" != "x" -a "$pidfile" == "$pid" ]; then
+        return 0
+    fi
 
-        pid=`cat $2`
+    return 1
+}
 
-        kill -s $3 $pid
-    }
+function killproc() {
+    if [ $# -ne 3 ]; then
+        echo "Expected three arguments, e.g. $0 -p pidfile signal"
+    fi
 
-    function log_failure_msg() {
-        echo "$@" "[ FAILED ]"
-    }
+    pid=`cat $2`
 
-    function log_success_msg() {
-        echo "$@" "[ OK ]"
-    }
-fi
+    kill -s $3 $pid
+}
+
+function log_failure_msg() {
+    echo "$@" "[ FAILED ]"
+}
+
+function log_success_msg() {
+    echo "$@" "[ OK ]"
+}
 
 # Process name ( For display )
 name=anomalous-agent
@@ -88,14 +82,9 @@ case $1 in
         # Start the daemon with the help of start-stop-daemon
         # Log the message appropriately
         status="1"
-        if which start-stop-daemon > /dev/null 2>&1; then
-            nohup start-stop-daemon -c anomalous:anomalous -d / --start --quiet --oknodo --pidfile $pidfile --exec $daemon > /dev/null 2>> /data/$name/shared/log.txt &
+        cd /
+        if sudo -u anomalous -g anomalous ${daemon}-daemon; then
             status="0"
-        else
-            cd /
-            if ${daemon}-daemon; then
-                status="0"
-            fi
         fi
         if [ "x$status" = "x0" ] ; then
             log_success_msg "Anomalous agent started"
