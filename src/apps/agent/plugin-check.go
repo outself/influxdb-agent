@@ -92,6 +92,11 @@ func (self *Agent) checkNewPlugins() {
 			}
 		}
 
+		manualPlugins := make(map[string]bool)
+		for _, config := range agentConfiguration.PluginsConfiguration {
+			manualPlugins[config.Name] = true
+		}
+
 		pluginsToCheck := make(map[string]*PluginMetadata)
 		for name, plugin := range plugins {
 			if disabledPlugins[name] {
@@ -103,6 +108,11 @@ func (self *Agent) checkNewPlugins() {
 		availablePlugins := make([]string, 0)
 
 		for name, plugin := range pluginsToCheck {
+			if manualPlugins[name] {
+				availablePlugins = append(availablePlugins, name)
+				continue
+			}
+
 			log.Debug("checking whether plugin %s needs to be installed on this server or not", name)
 
 			cmd := exec.Command(path.Join(plugin.Path, "should_monitor"))
