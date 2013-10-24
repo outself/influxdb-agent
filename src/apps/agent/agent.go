@@ -346,8 +346,6 @@ func cpuStats(ep *errplane.Errplane, ch chan error) {
 }
 
 func networkStats(ep *errplane.Errplane, ch chan error) {
-	skipFirst := true
-
 	prevNetwork := NetworkUtilization{}
 	for {
 		network := NetworkUtilization{}
@@ -359,35 +357,35 @@ func networkStats(ep *errplane.Errplane, ch chan error) {
 			return
 		}
 
-		if !skipFirst {
-			for name, utilization := range network {
+		for name, utilization := range network {
+			if prevNetwork[name] == nil {
+				continue
+			}
 
-				dimensions := errplane.Dimensions{"host": AgentConfig.Hostname, "device": name}
+			dimensions := errplane.Dimensions{"host": AgentConfig.Hostname, "device": name}
 
-				rxBytes := float64(utilization.rxBytes - prevNetwork[name].rxBytes)
-				rxPackets := float64(utilization.rxPackets - prevNetwork[name].rxPackets)
-				rxDroppedPackets := float64(utilization.rxDroppedPackets - prevNetwork[name].rxDroppedPackets)
-				rxErrors := float64(utilization.rxErrors - prevNetwork[name].rxErrors)
+			rxBytes := float64(utilization.rxBytes - prevNetwork[name].rxBytes)
+			rxPackets := float64(utilization.rxPackets - prevNetwork[name].rxPackets)
+			rxDroppedPackets := float64(utilization.rxDroppedPackets - prevNetwork[name].rxDroppedPackets)
+			rxErrors := float64(utilization.rxErrors - prevNetwork[name].rxErrors)
 
-				txBytes := float64(utilization.txBytes - prevNetwork[name].txBytes)
-				txPackets := float64(utilization.txPackets - prevNetwork[name].txPackets)
-				txDroppedPackets := float64(utilization.txDroppedPackets - prevNetwork[name].txDroppedPackets)
-				txErrors := float64(utilization.txErrors - prevNetwork[name].txErrors)
+			txBytes := float64(utilization.txBytes - prevNetwork[name].txBytes)
+			txPackets := float64(utilization.txPackets - prevNetwork[name].txPackets)
+			txDroppedPackets := float64(utilization.txDroppedPackets - prevNetwork[name].txDroppedPackets)
+			txErrors := float64(utilization.txErrors - prevNetwork[name].txErrors)
 
-				if report(ep, "server.stats.network.rxBytes", rxBytes, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.rxPackets", rxPackets, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.rxDropped", rxDroppedPackets, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.rxErrors", rxErrors, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.txBytes", txBytes, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.txPackets", txPackets, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.txDropped", txDroppedPackets, timestamp, dimensions, ch) ||
-					report(ep, "server.stats.network.txErrors", txErrors, timestamp, dimensions, ch) {
-					return
-				}
+			if report(ep, "server.stats.network.rxBytes", rxBytes, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.network.rxPackets", rxPackets, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.network.rxDropped", rxDroppedPackets, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.network.rxErrors", rxErrors, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.network.txBytes", txBytes, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.network.txPackets", txPackets, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.network.txDropped", txDroppedPackets, timestamp, dimensions, ch) ||
+				report(ep, "server.stats.network.txErrors", txErrors, timestamp, dimensions, ch) {
+				return
 			}
 		}
-		skipFirst = false
 		prevNetwork = network
-		time.Sleep(AgentConfig.Sleep)
 	}
+	time.Sleep(AgentConfig.Sleep)
 }
