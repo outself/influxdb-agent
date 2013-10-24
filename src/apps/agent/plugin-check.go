@@ -85,14 +85,18 @@ func (self *Agent) checkNewPlugins() {
 		plugins := self.getAvailablePlugins()
 
 		disabledPlugins := make(map[string]bool)
+		manualPlugins := make(map[string]bool)
 		agentConfiguration, err := self.configClient.GetAgentConfiguration()
-		if err == nil {
-			for _, plugin := range agentConfiguration.DisabledPlugins {
-				disabledPlugins[plugin] = true
-			}
+		if err != nil {
+			log.Warn("Can't get agent configuration: %s", err)
+			time.Sleep(self.config.Sleep)
+			continue
 		}
 
-		manualPlugins := make(map[string]bool)
+		for _, plugin := range agentConfiguration.DisabledPlugins {
+			disabledPlugins[plugin] = true
+		}
+
 		for _, config := range agentConfiguration.PluginsConfiguration {
 			manualPlugins[config.Name] = true
 		}
