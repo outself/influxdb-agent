@@ -386,6 +386,6 @@ func networkStats(ep *errplane.Errplane, ch chan error) {
 			}
 		}
 		prevNetwork = network
+		time.Sleep(AgentConfig.Sleep)
 	}
-	time.Sleep(AgentConfig.Sleep)
 }
