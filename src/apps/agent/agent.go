@@ -54,6 +54,7 @@ func main() {
 	go memStats(ep, ch)
 	go cpuStats(ep, ch)
 	go networkStats(ep, ch)
+	go loadAverageStats(ep, ch)
 	go diskSpaceStats(ep, ch)
 	go ioStats(ep, ch)
 	go procStats(ep, ch)
@@ -341,6 +342,28 @@ func cpuStats(ep *errplane.Errplane, ch chan error) {
 		}
 		skipFirst = false
 		prevCpu = cpu
+		time.Sleep(AgentConfig.Sleep)
+	}
+}
+
+func loadAverageStats(ep *errplane.Errplane, ch chan error) {
+	loadAvg := &LoadAverage{}
+	for {
+		timestamp := time.Now()
+		err := loadAvg.Get()
+		if err != nil {
+			ch <- err
+			return
+		}
+
+		dimensions := errplane.Dimensions{"host": AgentConfig.Hostname}
+
+		if report(ep, "server.stats.loadavg.1m", loadAvg[0], timestamp, dimensions, ch) ||
+			report(ep, "server.stats.loadavg.5m", loadAvg[1], timestamp, dimensions, ch) ||
+			report(ep, "server.stats.loadavg.15m", loadAvg[2], timestamp, dimensions, ch) {
+			return
+		}
+
 		time.Sleep(AgentConfig.Sleep)
 	}
 }
