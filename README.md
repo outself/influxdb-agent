@@ -29,14 +29,6 @@ GOARCH=386 ./make.bash --no-clean
 The script uses fpm to create the rpm and debian packages, on ubuntu you'll need `rpmbuild` which
 you can install by running `sudo apt-get install rpm`
 
-## Release
-
-`./release.sh major.minor.patch` this will create the rpm and debian packages and upload them to s3
-in the `errplane-agent` bucket.
-
-In order to upload to s3 you'll need to download `errplane-internal/aws.conf` from s3 and put it
-in your home directory. This file has the access tokens needed to access s3.
-
 ## Installing
 
 Create an errplane user using the following instruction:
