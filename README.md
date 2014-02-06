@@ -42,5 +42,6 @@ To install the package run
 Generate a config if this is the first time to install the agent
 
 `sudo -u errplane errplane-config-generator -api-key your-api-key -app-key your-app-key -environment production`
+other interesting options: -http-host, -udp-host, -config-host
 
 An init.d script will be installed to start and stop the agent `/etc/init.d/errplane-agent`
