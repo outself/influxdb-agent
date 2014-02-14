@@ -4,8 +4,8 @@ import (
 	log "code.google.com/p/log4go"
 	"flag"
 	"fmt"
-	"github.com/errplane/errplane-go"
 	"github.com/errplane/gosigar"
+	"github.com/influxdb/influxdb-go"
 	"io/ioutil"
 	"math"
 	"os"
@@ -96,7 +96,20 @@ func initLog() error {
 	return nil
 }
 
-func report(ep *errplane.Errplane, metric string, value float64, timestamp time.Time, dimensions errplane.Dimensions, ch chan error) bool {
+type Backend interface {
+	Report(string, float64, time.Time, map[string]string) error
+}
+
+type InfluxdbBackend struct {
+	client *influxdb.Client
+}
+
+func (self *InfluxdbBackend) Report(metric string, value float64, timestamp time.Time, dimensions map[string]string) error {
+	// massage the data
+	client.WriteSeries()
+}
+
+func report(ep Backend, metric string, value float64, timestamp time.Time, dimensions map[string]string, ch chan error) bool {
 	err := ep.Report(metric, value, timestamp, "", dimensions)
 	if err != nil {
 		log.Error("Error while sending report. Error: %s", err)
