@@ -55,7 +55,7 @@ function copy_files {
 UPDATE=on ./build.sh -v $version || exit 1
 copy_files
 pushd out_rpm
-fpm  -s dir -t rpm --rpm-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
+fpm  -s dir -t rpm --rpm-user errplane --rpm-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 mv *.rpm ../package/
 fpm  -s dir -t deb --deb-user errplane --deb-group errplane --after-install /tmp/post_install.sh -n errplane-agent -v $version . || exit $?
 mv *.deb ../package/
